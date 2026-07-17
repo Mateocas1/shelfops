@@ -1,0 +1,13 @@
+# Local Codex/runtime state
+.codex-log/
+*.log
+
+# Editors and OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Generated evidence too large for Git; keep reports and manifests versioned.
+evidence/raw/
+tmp/

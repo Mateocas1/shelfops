@@ -1,0 +1,13 @@
+# Project-scoped defaults. Keep permissions narrow for remote/unattended work.
+approval_policy = "on-request"
+sandbox_mode = "workspace-write"
+
+[features]
+goals = true
+multi_agent = true
+
+[agents]
+max_threads = 4
+max_depth = 1
+job_max_runtime_seconds = 1800
+interrupt_message = true
