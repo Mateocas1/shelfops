@@ -23,6 +23,10 @@
       "types": "./dist/recurrence/authority.d.ts",
       "default": "./dist/recurrence/authority.js"
     },
+    "./triage/authority": {
+      "types": "./dist/triage/authority.d.ts",
+      "default": "./dist/triage/authority.js"
+    },
     "./sla/start-cycle": {
       "types": "./dist/sla/start-cycle.d.ts",
       "default": "./dist/sla/start-cycle.js"
