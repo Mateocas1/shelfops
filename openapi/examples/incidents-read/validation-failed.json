@@ -1,0 +1,4 @@
+{
+  "request": { "path": "/api/v1/incidents?slaCondition=late&recurrenceDecisionState=resolved" },
+  "response": { "status": 400, "body": { "code": "validation-failed", "message": "Request validation failed", "correlationId": "example-correlation", "fields": [{ "name": "slaCondition", "code": "enum" }, { "name": "recurrenceDecisionState", "code": "enum" }] } }
+}

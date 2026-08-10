@@ -1,0 +1,38 @@
+{
+  "name": "@shelfops/contracts",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "build": "tsc --project tsconfig.json"
+  },
+  "exports": {
+    "./common": {
+      "types": "./dist/common.d.ts",
+      "default": "./dist/common.js"
+    },
+    "./configuration": {
+      "types": "./dist/configuration.d.ts",
+      "default": "./dist/configuration.js"
+    },
+    "./errors": {
+      "types": "./dist/errors.d.ts",
+      "default": "./dist/errors.js"
+    },
+    "./pagination": {
+      "types": "./dist/pagination.d.ts",
+      "default": "./dist/pagination.js"
+    },
+    "./sla-policy": {
+      "types": "./dist/sla-policy.d.ts",
+      "default": "./dist/sla-policy.js"
+    },
+    "./recurrence": {
+      "types": "./dist/recurrence.d.ts",
+      "default": "./dist/recurrence.js"
+    }
+  },
+  "dependencies": {
+    "@sinclair/typebox": "^0.34.52"
+  }
+}

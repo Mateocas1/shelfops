@@ -1,0 +1,28 @@
+import { readFile, readdir } from "node:fs/promises";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import type { AuthorizedPrincipal } from "@shelfops/application/authorization/authorized-principal";
+import { createDevelopmentIdentityProvider, createOpaqueSessionId } from "@shelfops/application/identity/session";
+import { RecurrenceDecisionForbiddenError, RecurrenceDecisionIdempotencyConflictError, RecurrenceDecisionNotFoundError, RecurrenceDecisionValidationError, type RecurrenceDecisionExecutor, type RecurrenceDecisionOutcome } from "@shelfops/application/recurrence/authority";
+import { buildApi } from "../src/app.js";
+import { openApiDocument } from "../src/openapi.js";
+
+const apps: Awaited<ReturnType<typeof buildApi>>[] = [];
+const ids = { actor: "00000000-0000-7000-8000-000000000001", suggestion: "00000000-0000-7000-8000-000000000002", decision: "00000000-0000-7000-8000-000000000003", incident: "00000000-0000-7000-8000-000000000004" };
+const principal: AuthorizedPrincipal = { id: ids.actor, active: true, roleScopes: [{ role: "collaborator", storeIds: ["store-a"], sectorIds: ["sector-a"], categoryResponsibilities: [], teamIds: [] }], grants: [] };
+const body = { state: "confirmed", expectedVersion: 1, idempotencyKey: "decision-a", note: "reviewed" };
+const outcome: RecurrenceDecisionOutcome = { status: "decided", sourceSuggestionId: ids.suggestion, decisionId: ids.decision, state: "confirmed", sequence: 1, incidentId: ids.incident, version: 2, decidedAt: "2026-08-09T10:00:00.000Z" };
+const request = (sessionId: string, payload: object = body, csrf = "csrf-token") => ({ method: "POST" as const, url: `/api/v1/recurrence-suggestions/${ids.suggestion}/decision`, headers: { cookie: `shelfops_session=${sessionId}`, "x-csrf-token": csrf }, payload });
+
+afterEach(async () => { await Promise.all(apps.splice(0).map((app) => app.close())); });
+describe("recurrence decision API", () => {
+  it("requires session and CSRF before execution, owns provenance, and maps stable outcomes", async () => {
+    const sessionId = createOpaqueSessionId(); let result: RecurrenceDecisionOutcome | Error = outcome; const execute = vi.fn(async (): Promise<RecurrenceDecisionOutcome> => { if (result instanceof Error) throw result; return result; }); const identityProvider = createDevelopmentIdentityProvider((candidate) => candidate === sessionId ? { id: sessionId, csrfToken: "csrf-token", expiresAt: Date.now() + 60_000, principal } : undefined); const app = await buildApi({ configurationExecutor: { execute: vi.fn() }, identityProvider, recurrenceDecisionExecutor: { execute } satisfies RecurrenceDecisionExecutor } as never); apps.push(app);
+    for (const [options, status, code] of [[request(createOpaqueSessionId()), 401, "authentication-required"], [request(sessionId, body, "wrong"), 403, "forbidden"], [request(sessionId, { ...body, actorId: ids.actor }), 400, "validation-failed"], [request(sessionId, { ...body, state: "pending" }), 400, "validation-failed"]] as const) { const response = await app.inject(options); expect(response.statusCode).toBe(status); expect(response.json()).toMatchObject({ code, correlationId: expect.any(String) }); }
+    expect(execute).not.toHaveBeenCalled(); const accepted = await app.inject(request(sessionId)); const acceptedBody = accepted.json(); expect(accepted.statusCode).toBe(201); expect(acceptedBody).toEqual({ ...outcome, status: undefined, correlationId: expect.any(String) }); expect(execute).toHaveBeenCalledWith(principal, { ...body, sourceSuggestionId: ids.suggestion, correlationId: acceptedBody.correlationId }); const replay = await app.inject(request(sessionId)); expect(replay.statusCode).toBe(201); expect(replay.json()).toMatchObject({ sourceSuggestionId: ids.suggestion, decisionId: ids.decision, correlationId: expect.any(String) }); expect(replay.json().correlationId).not.toBe(acceptedBody.correlationId);
+    for (const [failure, status, code] of [[new RecurrenceDecisionValidationError(), 400, "validation-failed"], [new RecurrenceDecisionForbiddenError(), 403, "forbidden"], [new RecurrenceDecisionNotFoundError(), 404, "not-found"], [new Error("stale-version"), 409, "stale-version"], [new RecurrenceDecisionIdempotencyConflictError(), 409, "idempotency-conflict"], [{ status: "indeterminate", correlationId: "lost", retryWithSameKey: true } as const, 503, "temporarily-unavailable"]] as const) { result = failure; const response = await app.inject(request(sessionId)); expect(response.statusCode).toBe(status); expect(response.json()).toMatchObject({ code, correlationId: expect.any(String) }); }
+  });
+
+  it("publishes deterministic OpenAPI, examples, and operator guidance", async () => {
+    const document = await openApiDocument() as Record<string, any>; const operation = document.paths["/api/v1/recurrence-suggestions/{sourceSuggestionId}/decision"].post; expect(Buffer.from(`${JSON.stringify(document, null, 2)}\n`, "utf8")).toEqual(await readFile("openapi/openapi.json")); expect(operation.security).toEqual([{ sessionCookie: [] }]); expect(Object.keys(operation.responses)).toEqual(["201", "400", "401", "403", "404", "409", "503"]); expect(operation.requestBody.content["application/json"].schema).toMatchObject({ additionalProperties: false, required: ["state", "expectedVersion", "idempotencyKey"] }); expect((await readdir("openapi/examples/recurrence-decisions")).sort()).toEqual(["confirmed.json", "dismissed.json", "stale-version.json"]); expect(await readFile("docs/recurrence-decisions.md", "utf8")).toMatch(/session[\s\S]*CSRF[\s\S]*expectedVersion[\s\S]*idempotencyKey[\s\S]*correction[\s\S]*same key/i);
+  });
+});

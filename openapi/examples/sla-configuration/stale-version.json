@@ -1,0 +1,4 @@
+{
+  "request": { "path": "/api/v1/sla-policy", "note": "Reuse the complete accepted matrix with expectedVersion 1 after version 2 is current." },
+  "response": { "status": 409, "body": { "code": "stale-version", "message": "Expected version is stale", "correlationId": "example-correlation" } }
+}

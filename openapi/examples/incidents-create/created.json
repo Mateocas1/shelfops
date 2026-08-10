@@ -1,0 +1,4 @@
+{
+  "request": { "path": "/api/v1/incidents", "body": { "storeId": "00000000-0000-7000-8000-000000000005", "sectorId": "00000000-0000-7000-8000-000000000006", "locationId": "00000000-0000-7000-8000-000000000007", "productId": "00000000-0000-7000-8000-000000000008", "category": "out-of-stock", "severity": "high", "title": "Empty shelf", "description": "No units remain", "occurredAt": "2026-08-08T10:00:00.000Z", "textEvidence": "Shelf checked", "idempotencyKey": "incident-1" } },
+  "response": { "status": 201, "body": { "incidentId": "00000000-0000-7000-8000-000000000002", "evidenceId": "00000000-0000-7000-8000-000000000003", "eventId": "00000000-0000-7000-8000-000000000004", "reporterId": "00000000-0000-7000-8000-000000000001", "createdAt": "2026-08-08T10:01:00.000Z", "state": "open", "version": 1, "correlationId": "example-correlation" } }
+}

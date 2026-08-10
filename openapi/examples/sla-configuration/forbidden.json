@@ -1,0 +1,4 @@
+{
+  "request": { "path": "/api/v1/sla-policy", "omitCsrf": true, "body": { "expectedVersion": 1, "effectiveAt": "2026-08-10T10:00:00.000Z", "idempotencyKey": "sla-policy-denied", "rules": [{ "category": "equipment-failure", "severity": "low", "warningAfterSeconds": 60, "deadlineAfterSeconds": 120 }] } },
+  "response": { "status": 403, "body": { "code": "forbidden", "message": "CSRF validation failed", "correlationId": "example-correlation" } }
+}

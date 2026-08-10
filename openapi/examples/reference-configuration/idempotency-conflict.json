@@ -1,0 +1,7 @@
+{
+  "request": {
+    "path": "/api/v1/stores/store-a/locations/location-a/configuration",
+    "body": { "expectedVersion": 3, "effectiveAt": "2026-08-05T00:00:00.000Z", "active": true, "label": "Different", "idempotencyKey": "configure-location-1" }
+  },
+  "response": { "status": 409, "body": { "code": "idempotency-conflict", "message": "Idempotency key is already used for a different request", "correlationId": "example-correlation" } }
+}

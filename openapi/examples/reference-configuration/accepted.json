@@ -1,0 +1,7 @@
+{
+  "request": {
+    "path": "/api/v1/stores/store-a/locations/location-a/configuration",
+    "body": { "expectedVersion": 3, "effectiveAt": "2026-08-05T00:00:00.000Z", "active": true, "label": "Configured", "idempotencyKey": "configure-location-1" }
+  },
+  "response": { "status": 200, "body": { "eventId": "01941f29-7c00-73e4-a310-744d2167fc5b", "version": 4, "before": { "active": false }, "after": { "active": true }, "effectiveAt": "2026-08-05T00:00:00.000Z", "correlationId": "example-correlation" } }
+}

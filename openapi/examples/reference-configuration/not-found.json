@@ -1,0 +1,7 @@
+{
+  "request": {
+    "path": "/api/v1/stores/store-a/locations/location-a/configuration",
+    "body": { "expectedVersion": 3, "effectiveAt": "2026-08-05T00:00:00.000Z", "active": true, "label": "Configured", "idempotencyKey": "configure-location-missing" }
+  },
+  "response": { "status": 404, "body": { "code": "not-found", "message": "Resource not found", "correlationId": "example-correlation" } }
+}

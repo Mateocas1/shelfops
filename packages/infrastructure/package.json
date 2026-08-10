@@ -1,0 +1,53 @@
+{
+  "name": "@shelfops/infrastructure",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "build": "tsc --project tsconfig.json"
+  },
+  "exports": {
+    "./identity/postgres-identity-provider": {
+      "types": "./dist/identity/postgres-identity-provider.d.ts",
+      "default": "./dist/identity/postgres-identity-provider.js"
+    },
+    "./idempotency/postgres-idempotency-store": {
+      "types": "./dist/idempotency/postgres-idempotency-store.d.ts",
+      "default": "./dist/idempotency/postgres-idempotency-store.js"
+    },
+    "./incidents/postgres-incident-creation-executor": {
+      "types": "./dist/incidents/postgres-incident-creation-executor.d.ts",
+      "default": "./dist/incidents/postgres-incident-creation-executor.js"
+    },
+    "./sla/sla-cycle-executor": {
+      "types": "./dist/sla/sla-cycle-executor.d.ts",
+      "default": "./dist/sla/sla-cycle-executor.js"
+    },
+    "./postgres/sla-policy-executor": {
+      "types": "./dist/postgres/sla-policy-executor.d.ts",
+      "default": "./dist/postgres/sla-policy-executor.js"
+    },
+    "./recurrence/postgres-recurrence-authority-executor": {
+      "types": "./dist/recurrence/postgres-recurrence-authority-executor.d.ts",
+      "default": "./dist/recurrence/postgres-recurrence-authority-executor.js"
+    },
+    "./repositories/authorized-incident-repository": {
+      "types": "./dist/repositories/authorized-incident-repository.d.ts",
+      "default": "./dist/repositories/authorized-incident-repository.js"
+    },
+    "./reference-data/postgres-configuration-executor": {
+      "types": "./dist/reference-data/postgres-configuration-executor.d.ts",
+      "default": "./dist/reference-data/postgres-configuration-executor.js"
+    },
+    "./reference-data/postgres-configuration-repository": {
+      "types": "./dist/reference-data/postgres-configuration-repository.d.ts",
+      "default": "./dist/reference-data/postgres-configuration-repository.js"
+    }
+  },
+  "dependencies": {
+    "@shelfops/application": "workspace:*",
+    "kysely": "^0.28.3",
+    "pg": "^8.22.0",
+    "uuid": "^14.0.1"
+  }
+}

@@ -1,0 +1,56 @@
+# ShelfOps SDD configuration
+project:
+  name: shelfops
+  lifecycle: greenfield
+  application_stack: TypeScript modular monolith (React/Vite PWA, Fastify API, PostgreSQL worker/domain/infrastructure packages)
+artifact_store:
+  mode: hybrid
+workflow:
+  execution_mode: auto
+  proposal_question_round_required: true
+  delivery_strategy: auto-chain
+  package_manager: pnpm
+  review_budget_changed_lines: 1200
+  phase_order:
+    - proposal
+    - spec
+    - design
+    - tasks
+    - apply
+    - verify
+    - archive
+strict_tdd:
+  enabled: true
+  activation: active
+  currently_runnable: true
+  reason: The pnpm/Vitest harness is runnable; strict TDD is active for WU-04 onward after WU-04TH and WU-04H completed its prerequisites.
+  phase_rules:
+    apply: Use red-green-refactor for every business behavior; do not fall back to standard mode.
+    verify: Run the selected boundary-specific commands and pnpm test:all; report command output.
+testing:
+  package_manager: pnpm
+  runner: Vitest unit, contract, and integration configurations with Testcontainers PostgreSQL integration; Playwright is planned E2E work and not current runnable evidence.
+  test_command: pnpm test
+  full_test_command: pnpm test:all
+  currently_runnable: true
+  detection:
+    package_manifests:
+      - package.json
+      - apps/api/package.json
+      - apps/web/package.json
+      - apps/worker/package.json
+      - packages/test-support/package.json
+    build_files:
+      - tsconfig.base.json
+      - tsconfig.json
+      - apps/api/tsconfig.json
+      - apps/web/tsconfig.json
+      - apps/worker/tsconfig.json
+    test_configuration:
+      - vitest.config.ts
+      - vitest.contract.config.ts
+      - vitest.integration.config.ts
+    status: Runnable pnpm 11/Vitest harness. pnpm test, pnpm test:all, pnpm typecheck, pnpm test:integration, pnpm test:contract, and pnpm build are available. pnpm typecheck builds @shelfops/contracts before tsc --noEmit. Integration tests run with fileParallelism false; WU-04H completed serialized integration and one clean pnpm test:all passed.
+repository:
+  git_initialized: true
+  skill_registry: .atl/skill-registry.md

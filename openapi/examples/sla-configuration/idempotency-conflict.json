@@ -1,0 +1,4 @@
+{
+  "request": { "path": "/api/v1/sla-policy", "note": "Reuse accepted idempotencyKey sla-policy-v2 with any changed complete matrix value." },
+  "response": { "status": 409, "body": { "code": "idempotency-conflict", "message": "Idempotency key is already used for a different request", "correlationId": "example-correlation" } }
+}

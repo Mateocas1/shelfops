@@ -1,0 +1,35 @@
+{
+  "name": "@shelfops/domain",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "build": "tsc --project tsconfig.json"
+  },
+  "exports": {
+    "./authorization/types": {
+      "types": "./dist/authorization/types.d.ts",
+      "default": "./dist/authorization/types.js"
+    },
+    "./authorization/visibility-policy": {
+      "types": "./dist/authorization/visibility-policy.d.ts",
+      "default": "./dist/authorization/visibility-policy.js"
+    },
+    "./authorization/action-policy": {
+      "types": "./dist/authorization/action-policy.d.ts",
+      "default": "./dist/authorization/action-policy.js"
+    },
+    "./authorization/assignment-eligibility": {
+      "types": "./dist/authorization/assignment-eligibility.d.ts",
+      "default": "./dist/authorization/assignment-eligibility.js"
+    },
+    "./governance/versioned-policy": {
+      "types": "./dist/governance/versioned-policy.d.ts",
+      "default": "./dist/governance/versioned-policy.js"
+    },
+    "./recurrence/evaluator": {
+      "types": "./dist/recurrence/evaluator.d.ts",
+      "default": "./dist/recurrence/evaluator.js"
+    }
+  }
+}

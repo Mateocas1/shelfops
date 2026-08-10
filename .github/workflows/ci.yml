@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.11.0
+          run_install: false
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.19.0
+          cache: pnpm
+      - name: Install frozen dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Build producer packages
+        run: pnpm build:producers
+      - name: Typecheck workspace
+        run: pnpm typecheck
+      - name: Run unit tests
+        run: pnpm test:unit
+      - name: Verify Docker
+        run: docker info
+      - name: Run serial PostgreSQL integration tests
+        run: pnpm test:integration
+      - name: Run API contract tests
+        run: pnpm test:contract
+      - name: Generate OpenAPI
+        run: pnpm openapi:generate
+      - name: Reject OpenAPI drift
+        run: git diff --exit-code -- openapi/openapi.json
+      - name: Build workspace
+        run: pnpm build
+
+      # Future extension: add the owned Playwright gate here after installation and browser policy are delivered; E2E is not run today.

@@ -1,0 +1,66 @@
+{
+  "name": "@shelfops/application",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "build": "tsc --project tsconfig.json"
+  },
+  "exports": {
+    "./authorization/authorized-principal": {
+      "types": "./dist/authorization/authorized-principal.d.ts",
+      "default": "./dist/authorization/authorized-principal.js"
+    },
+    "./identity/session": {
+      "types": "./dist/identity/session.d.ts",
+      "default": "./dist/identity/session.js"
+    },
+    "./incidents/create-incident": {
+      "types": "./dist/incidents/create-incident.d.ts",
+      "default": "./dist/incidents/create-incident.js"
+    },
+    "./recurrence/authority": {
+      "types": "./dist/recurrence/authority.d.ts",
+      "default": "./dist/recurrence/authority.js"
+    },
+    "./sla/start-cycle": {
+      "types": "./dist/sla/start-cycle.d.ts",
+      "default": "./dist/sla/start-cycle.js"
+    },
+    "./sla/configure-policy": {
+      "types": "./dist/sla/configure-policy.d.ts",
+      "default": "./dist/sla/configure-policy.js"
+    },
+    "./ports/identity-provider": {
+      "types": "./dist/ports/identity-provider.d.ts",
+      "default": "./dist/ports/identity-provider.js"
+    },
+    "./ports/id-generator": {
+      "types": "./dist/ports/id-generator.d.ts",
+      "default": "./dist/ports/id-generator.js"
+    },
+    "./ports/configuration-repository": {
+      "types": "./dist/ports/configuration-repository.d.ts",
+      "default": "./dist/ports/configuration-repository.js"
+    },
+    "./ports/configuration-executor": {
+      "types": "./dist/ports/configuration-executor.d.ts",
+      "default": "./dist/ports/configuration-executor.js"
+    },
+    "./ports/idempotency-store": {
+      "types": "./dist/ports/idempotency-store.d.ts",
+      "default": "./dist/ports/idempotency-store.js"
+    },
+    "./reference-data/configure-reference-data": {
+      "types": "./dist/reference-data/configure-reference-data.d.ts",
+      "default": "./dist/reference-data/configure-reference-data.js"
+    },
+    "./reference-data/configuration-executor": {
+      "types": "./dist/reference-data/configuration-executor.d.ts",
+      "default": "./dist/reference-data/configuration-executor.js"
+    }
+  },
+  "dependencies": {
+    "@shelfops/domain": "workspace:*"
+  }
+}

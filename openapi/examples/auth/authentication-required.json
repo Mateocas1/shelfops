@@ -1,0 +1,5 @@
+{
+  "code": "authentication-required",
+  "message": "Authentication is required",
+  "correlationId": "req-example-auth-001"
+}

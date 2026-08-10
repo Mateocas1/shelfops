@@ -1,0 +1,4 @@
+{
+  "request": { "path": "/api/v1/incidents/00000000-0000-7000-8000-000000000099" },
+  "response": { "status": 404, "body": { "code": "not-found", "message": "Resource not found", "correlationId": "example-correlation" } }
+}

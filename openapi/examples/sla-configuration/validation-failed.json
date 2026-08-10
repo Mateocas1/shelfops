@@ -1,0 +1,4 @@
+{
+  "request": { "path": "/api/v1/sla-policy", "body": { "expectedVersion": 1, "effectiveAt": "2026-08-10T10:00:00.000Z", "idempotencyKey": "sla-policy-invalid", "rules": [{ "category": "equipment-failure", "severity": "low", "warningAfterSeconds": 0, "deadlineAfterSeconds": 120 }] } },
+  "response": { "status": 400, "body": { "code": "validation-failed", "message": "Request validation failed", "correlationId": "example-correlation", "fields": [{ "name": "rules/0/warningAfterSeconds", "code": "minimum" }] } }
+}

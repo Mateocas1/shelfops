@@ -1,0 +1,7 @@
+{
+  "request": {
+    "path": "/api/v1/stores/store-a/locations/location-a/configuration",
+    "body": { "expectedVersion": 3, "effectiveAt": "2026-08-05T00:00:00.000Z", "active": true, "label": "Configured", "idempotencyKey": "configure-location-pending" }
+  },
+  "response": { "status": 503, "body": { "code": "temporarily-unavailable", "message": "Service is temporarily unavailable", "correlationId": "example-correlation" } }
+}

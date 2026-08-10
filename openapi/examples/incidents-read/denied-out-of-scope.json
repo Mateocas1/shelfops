@@ -1,0 +1,4 @@
+{
+  "request": { "path": "/api/v1/incidents?storeId=00000000-0000-7000-8000-000000000090&slaCondition=breached&recurrenceDecisionState=confirmed" },
+  "response": { "status": 200, "body": { "items": [], "limit": 50, "correlationId": "example-correlation" } }
+}

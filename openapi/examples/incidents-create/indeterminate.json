@@ -1,0 +1,4 @@
+{
+  "request": { "path": "/api/v1/incidents", "retry": "Use the same body idempotencyKey after an indeterminate result." },
+  "response": { "status": 503, "body": { "code": "temporarily-unavailable", "message": "Service is temporarily unavailable", "correlationId": "example-correlation" } }
+}

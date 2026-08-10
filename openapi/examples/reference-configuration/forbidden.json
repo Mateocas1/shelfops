@@ -1,0 +1,7 @@
+{
+  "request": {
+    "path": "/api/v1/stores/store-a/locations/location-a/configuration", "omitCsrf": true,
+    "body": { "expectedVersion": 3, "effectiveAt": "2026-08-05T00:00:00.000Z", "active": true, "label": "Configured", "idempotencyKey": "configure-location-forbidden" }
+  },
+  "response": { "status": 403, "body": { "code": "forbidden", "message": "CSRF validation failed", "correlationId": "example-correlation" } }
+}

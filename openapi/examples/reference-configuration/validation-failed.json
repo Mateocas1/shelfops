@@ -1,0 +1,7 @@
+{
+  "request": {
+    "path": "/api/v1/stores/store-a/locations/location-a/configuration",
+    "body": { "expectedVersion": 3, "effectiveAt": "2026-08-05T00:00:00.000Z", "active": true, "idempotencyKey": "configure-location-invalid", "actorId": "client-actor" }
+  },
+  "response": { "status": 400, "body": { "code": "validation-failed", "message": "Request validation failed", "correlationId": "example-correlation", "fields": [{ "name": "actorId", "code": "unknown" }] } }
+}

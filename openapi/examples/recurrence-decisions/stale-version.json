@@ -1,0 +1,1 @@
+{"request":{"path":"/api/v1/recurrence-suggestions/00000000-0000-7000-8000-000000000015/decision","body":{"state":"confirmed","expectedVersion":1,"idempotencyKey":"recurrence-retry-1"}},"response":{"status":409,"body":{"code":"stale-version","message":"Expected version is stale","correlationId":"example-correlation"}}}

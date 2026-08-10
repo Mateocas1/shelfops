@@ -1,0 +1,7 @@
+{
+  "request": {
+    "path": "/api/v1/stores/store-a/locations/location-a/configuration",
+    "body": { "expectedVersion": 2, "effectiveAt": "2026-08-05T00:00:00.000Z", "active": true, "label": "Configured", "idempotencyKey": "configure-location-stale" }
+  },
+  "response": { "status": 409, "body": { "code": "stale-version", "message": "Expected version is stale", "correlationId": "example-correlation" } }
+}
