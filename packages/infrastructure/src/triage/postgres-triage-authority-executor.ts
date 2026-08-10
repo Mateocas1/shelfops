@@ -7,6 +7,7 @@ import { visibilityDecision } from "@shelfops/domain/authorization/visibility-po
 import { evaluateTriage, type TriageEvaluationResult, type TriageRule } from "@shelfops/domain/triage/evaluator";
 import { v7 } from "uuid";
 import type { SqlClient } from "../reference-data/postgres-configuration-repository.js";
+import { PostgresSlaCycleExecutor } from "../sla/sla-cycle-executor.js";
 
 interface TransactionClient extends SqlClient { release(error?: Error | boolean): void; }
 export interface TriageAuthorityTransactionPool { connect(): Promise<TransactionClient>; }
@@ -163,6 +164,7 @@ export class PostgresTriageAuthorityExecutor {
           classificationEventId = this.id();
           const classificationSequence = (await client.query<{ sequence: number }>("SELECT COALESCE(MAX(sequence),0)+1 sequence FROM incident_events WHERE incident_id=$1", [incident.id])).rows[0]!.sequence;
           await client.query("INSERT INTO incident_events(id,incident_id,sequence,event_type,actor_user_id,origin,data) VALUES($1,$2,$3,'incident-classified',$4,'human',jsonb_build_object('evaluationId',$5::text,'decisionSetId',$6::text,'correlationId',$7::text))", [classificationEventId, incident.id, classificationSequence, principal.id, evaluation.id, setId, command.correlationId]);
+          if (incident.category_key !== aggregate.category || incident.severity_key !== aggregate.severity) await new PostgresSlaCycleExecutor({ next: this.id }).recalculate(client, { incidentId: incident.id, organizationId: actor.organization_id, category: aggregate.category!, severity: aggregate.severity!, decidedAt: inserted.rows[0]!.decided_at, actorUserId: principal.id, correlationId: command.correlationId });
           state = "classified";
         } else version = (await client.query<{ version: number }>("UPDATE incidents SET version=version+1,updated_at=transaction_timestamp() WHERE id=$1 AND organization_id=$2 RETURNING version", [incident.id, actor.organization_id])).rows[0]!.version;
         outcome = { status: "decided", incidentId: incident.id, state, version, eventId, ...(classificationEventId ? { classificationEventId } : {}), decisionSet: { id: setId, evaluationId: evaluation.id, sequence, recordedFields, complete: effectiveComplete, decidedAt: inserted.rows[0]!.decided_at.toISOString(), actionCorrelationId: command.correlationId } };
