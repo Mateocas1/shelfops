@@ -30,6 +30,10 @@
     "./recurrence/evaluator": {
       "types": "./dist/recurrence/evaluator.d.ts",
       "default": "./dist/recurrence/evaluator.js"
+    },
+    "./triage/evaluator": {
+      "types": "./dist/triage/evaluator.d.ts",
+      "default": "./dist/triage/evaluator.js"
     }
   }
 }

@@ -46,16 +46,19 @@ describe("application package boundary", () => {
     const lockfile = await readFile(new URL("../../../pnpm-lock.yaml", import.meta.url), "utf8");
     const rootPackage = JSON.parse(await readFile(new URL("../../../package.json", import.meta.url), "utf8")) as Readonly<{ scripts?: Record<string, string> }>;
     const applicationSource = await sourceFile(new URL("../../../packages/application/src/reference-data/configure-reference-data.ts", import.meta.url));
+    const triageEvaluatorDeclaration = await readFile(new URL("../../../packages/domain/dist/triage/evaluator.d.ts", import.meta.url), "utf8");
 
     expect(domain).toMatchObject({ name: "@shelfops/domain", private: true, type: "module" });
     expect(Object.keys(domain.exports).sort()).toEqual([
       "./authorization/action-policy",
       "./authorization/assignment-eligibility",
       "./authorization/types",
-      "./authorization/visibility-policy", "./governance/versioned-policy", "./recurrence/evaluator"
+      "./authorization/visibility-policy", "./governance/versioned-policy", "./recurrence/evaluator", "./triage/evaluator"
     ]);
     expect(domain.exports["./governance/versioned-policy"]).toEqual({ types: "./dist/governance/versioned-policy.d.ts", default: "./dist/governance/versioned-policy.js" });
     expect(domain.exports["./recurrence/evaluator"]).toEqual({ types: "./dist/recurrence/evaluator.d.ts", default: "./dist/recurrence/evaluator.js" });
+    expect(domain.exports["./triage/evaluator"]).toEqual({ types: "./dist/triage/evaluator.d.ts", default: "./dist/triage/evaluator.js" });
+    expect(triageEvaluatorDeclaration).toMatch(/export declare function evaluateTriage\(/);
     expect(application).toMatchObject({ name: "@shelfops/application", private: true, type: "module" });
     expect(Object.keys(application.exports).sort()).toEqual([
       "./authorization/authorized-principal",
