@@ -74,6 +74,9 @@ importers:
       '@shelfops/application':
         specifier: workspace:*
         version: link:../application
+      '@shelfops/domain':
+        specifier: workspace:*
+        version: link:../domain
       kysely:
         specifier: ^0.28.3
         version: 0.28.17

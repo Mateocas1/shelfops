@@ -46,10 +46,15 @@
     "./triage/postgres-triage-authority-source": {
       "types": "./dist/triage/postgres-triage-authority-source.d.ts",
       "default": "./dist/triage/postgres-triage-authority-source.js"
+    },
+    "./triage/postgres-triage-authority-executor": {
+      "types": "./dist/triage/postgres-triage-authority-executor.d.ts",
+      "default": "./dist/triage/postgres-triage-authority-executor.js"
     }
   },
   "dependencies": {
     "@shelfops/application": "workspace:*",
+    "@shelfops/domain": "workspace:*",
     "kysely": "^0.28.3",
     "pg": "^8.22.0",
     "uuid": "^14.0.1"
