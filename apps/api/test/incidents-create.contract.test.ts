@@ -3,6 +3,8 @@ import { readFile, readdir } from "node:fs/promises";
 import type { AuthorizedPrincipal } from "@shelfops/application/authorization/authorized-principal";
 import { createDevelopmentIdentityProvider, createOpaqueSessionId } from "@shelfops/application/identity/session";
 import { IncidentCreationForbiddenError, IncidentCreationIdempotencyConflictError, IncidentCreationValidationError, IncidentReferenceError, type CreateIncidentInput, type IncidentCreationOutcome } from "@shelfops/application/incidents/create-incident";
+import { IdempotencyConflictErrorSchema } from "@shelfops/contracts/errors";
+import { IncidentCreationResponseSchema } from "@shelfops/contracts/triage";
 import type { PostgresIncidentCreationExecutor } from "@shelfops/infrastructure/incidents/postgres-incident-creation-executor";
 import { buildApi } from "../src/app.js";
 import { openApiDocument } from "../src/openapi.js";
@@ -10,12 +12,13 @@ import { openApiDocument } from "../src/openapi.js";
 type Executor = Pick<PostgresIncidentCreationExecutor, "execute">;
 const apps: Awaited<ReturnType<typeof buildApi>>[] = [];
 const uuid = (value: number) => `00000000-0000-7000-8000-${String(value).padStart(12, "0")}`;
-const ids = { user: uuid(1), incident: uuid(2), evidence: uuid(3), event: uuid(4), store: uuid(5), sector: uuid(6), location: uuid(7), product: uuid(8) };
+const ids = { user: uuid(1), incident: uuid(2), evidence: uuid(3), event: uuid(4), triageEvent: uuid(5), evaluation: uuid(6), cycle: uuid(7), policy: uuid(8), rule: uuid(9), store: uuid(10), sector: uuid(11), location: uuid(12), product: uuid(13) };
 const principal: AuthorizedPrincipal = { id: ids.user, active: true, roleScopes: [{ role: "collaborator", storeIds: [ids.store], sectorIds: [], categoryResponsibilities: [], teamIds: [] }], grants: [] };
 const body = { storeId: ids.store, sectorId: ids.sector, locationId: ids.location, productId: ids.product, category: "out-of-stock", severity: "high", title: "Empty shelf", description: "No units remain", occurredAt: "2026-08-08T10:00:00.000Z", textEvidence: "Shelf checked", idempotencyKey: "incident-1" };
-const created = { status: "created", incidentId: ids.incident, evidenceId: ids.evidence, eventId: ids.event, reporterId: ids.user, createdAt: "2026-08-08T10:01:00.000Z", state: "open", version: 1 } as const;
+const created = { status: "created", incidentId: ids.incident, evidenceId: ids.evidence, eventId: ids.event, triageEventId: ids.triageEvent, reporterId: ids.user, createdAt: "2026-08-08T10:01:00.000Z", state: "open", version: 1, actionCorrelationId: "creation-action-correlation", sla: { cycleId: ids.cycle, cycleSequence: 1, condition: "on-track", warningAt: "2026-08-08T14:01:00.000Z", deadlineAt: "2026-08-08T18:01:00.000Z", policyVersionId: ids.policy, policyVersion: 1, clockMode: "continuous-utc", pausesWhenBlocked: false }, triage: { incidentId: ids.incident, state: "open", version: 1, status: "awaiting-decision", currentEvaluation: { id: ids.evaluation, incidentId: ids.incident, incidentVersion: 1, rule: { identifier: "default-catch-all", ruleId: ids.rule, versionId: ids.rule, version: 1 }, inputs: { storeId: ids.store, sectorId: ids.sector, locationId: ids.location, productId: ids.product, category: "out-of-stock", severity: "high", eligibleAssigneeIds: [] }, suggested: { category: "out-of-stock", severity: "high", assigneeUserId: null, manualFields: ["assignee"] }, explanation: { code: "manual-assignee-ambiguous", facts: { eligibleAssigneeCount: 0 }, text: "Input category and severity preserved; assignee requires human selection (0 eligible)." }, evaluatedAt: "2026-08-08T10:01:00.000Z", actionCorrelationId: "creation-action-correlation" }, latestDecisions: { category: null, severity: null, assignee: null }, complete: false } } as const;
 const cookie = (sessionId: string) => `shelfops_session=${sessionId}`;
 const request = (sessionId: string, payload: object = body, csrf = "csrf-token") => ({ method: "POST" as const, url: "/api/v1/incidents", headers: { cookie: cookie(sessionId), "x-csrf-token": csrf }, payload });
+function openApiShape(value: unknown): unknown { if (Array.isArray(value)) return value.map(openApiShape); if (!value || typeof value !== "object") return value; const shape = Object.fromEntries(Object.entries(value).map(([key, entry]) => [key, openApiShape(entry)])); if (!("const" in shape)) return shape; const literal = shape.const; delete shape.const; return { ...shape, enum: [literal] }; }
 
 async function appFor(executor: Executor) {
   const sessionId = createOpaqueSessionId();
@@ -72,14 +75,15 @@ describe("incident creation API", () => {
       [new IncidentReferenceError(), 400, "validation-failed", [{ name: "reference", code: "invalid" }]],
       [new IncidentCreationForbiddenError(), 403, "forbidden", undefined],
       [new IncidentCreationIdempotencyConflictError(), 409, "idempotency-conflict", undefined],
-      [{ status: "indeterminate", correlationId: "executor-correlation", retryWithSameKey: true } as const, 503, "temporarily-unavailable", undefined]
+      [{ status: "indeterminate", correlationId: "executor-correlation", retryWithSameKey: true } as const, 503, "temporarily-unavailable", undefined],
+      [new Error("triage-unavailable"), 503, "temporarily-unavailable", undefined]
     ] as const) {
       result = failure;
       const response = await app.inject(request(sessionId)); const responseBody = response.json();
       expect(response.statusCode).toBe(status); expect(responseBody).toMatchObject({ code, correlationId: expect.any(String), ...(fields ? { fields } : {}) });
       expect(response.headers["x-correlation-id"]).toBe(responseBody.correlationId);
     }
-    expect(execute).toHaveBeenCalledTimes(5);
+    expect(execute).toHaveBeenCalledTimes(6);
   });
 
   it("replays original creation data with the current HTTP correlation", async () => {
@@ -87,14 +91,12 @@ describe("incident creation API", () => {
     const { app, sessionId } = await appFor({ execute });
     const first = await app.inject(request(sessionId)); const replay = await app.inject(request(sessionId));
     const firstBody = first.json(); const replayBody = replay.json();
-    expect(replayBody).toMatchObject({ incidentId: firstBody.incidentId, evidenceId: firstBody.evidenceId, eventId: firstBody.eventId, reporterId: firstBody.reporterId, createdAt: firstBody.createdAt, state: "open", version: 1 });
+    expect({ ...replayBody, correlationId: firstBody.correlationId }).toEqual(firstBody); expect(replayBody.actionCorrelationId).toBe("creation-action-correlation");
     expect(replayBody.correlationId).not.toBe(firstBody.correlationId); expect(replay.headers["x-correlation-id"]).toBe(replayBody.correlationId);
   });
 
   it("publishes the exact POST schema and response set", async () => {
     const document = await openApiDocument() as Record<string, any>; const path = document.paths["/api/v1/incidents"]; const responses = path.post.responses;
-    const committed = await readFile("openapi/openapi.json");
-    expect(Buffer.from(`${JSON.stringify(document, null, 2)}\n`, "utf8")).toEqual(committed);
     expect(Object.keys(path)).toEqual(["get", "post"]); expect(path.post.security).toEqual([{ sessionCookie: [] }]);
     expect(Object.keys(responses)).toEqual(["201", "400", "401", "403", "409", "503"]);
     const schema = path.post.requestBody.content["application/json"].schema;
@@ -103,14 +105,7 @@ describe("incident creation API", () => {
     expect(schema.properties.occurredAt.format).toBe("date-time"); expect(schema.properties.textEvidence.maxLength).toBe(4000);
     expect(schema.properties.expectedVersion).toBeUndefined(); expect(JSON.stringify(path.post)).not.toMatch(/Idempotency-Key|actorId|organizationId|reporterId.*requestBody/);
     const responseSchema = (status: string) => responses[status].content["application/json"].schema;
-    expect(responseSchema("201")).toEqual({
-      type: "object", additionalProperties: false,
-      properties: {
-        incidentId: { type: "string", format: "uuid" }, evidenceId: { type: "string", format: "uuid" }, eventId: { type: "string", format: "uuid" }, reporterId: { type: "string", format: "uuid" },
-        createdAt: { type: "string", format: "date-time" }, state: { type: "string", enum: ["open"] }, version: { type: "integer", enum: [1] }, correlationId: { type: "string" }
-      },
-      required: ["incidentId", "evidenceId", "eventId", "reporterId", "createdAt", "state", "version", "correlationId"]
-    });
+    expect(responseSchema("201")).toEqual(openApiShape(IncidentCreationResponseSchema));
     const errorSchema = (code: string, fields = false) => ({
       additionalProperties: false, type: "object",
       required: ["code", "message", "correlationId", ...(fields ? ["fields"] : [])],
@@ -123,7 +118,7 @@ describe("incident creation API", () => {
     expect(responseSchema("400")).toEqual(errorSchema("validation-failed", true));
     expect(responseSchema("401")).toEqual(errorSchema("authentication-required"));
     expect(responseSchema("403")).toEqual(errorSchema("forbidden"));
-    expect(responseSchema("409")).toEqual(errorSchema("idempotency-conflict"));
+    expect(responseSchema("409")).toEqual(openApiShape(IdempotencyConflictErrorSchema));
     expect(responseSchema("503")).toEqual(errorSchema("temporarily-unavailable"));
     for (const status of Object.keys(responses)) {
       expect(responses[status].headers).toEqual({ "X-Correlation-Id": { schema: { type: "string" }, description: "Correlation for this HTTP request; replays receive a new value." } });

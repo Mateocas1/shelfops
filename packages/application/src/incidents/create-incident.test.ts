@@ -9,8 +9,12 @@ const input = (overrides: Partial<CreateIncidentInput> = {}): CreateIncidentInpu
 describe("incident creation command", () => {
   it("normalizes required evidence and owns attribution and initial fields", () => {
     const prepared = prepareIncidentCreation(principal(), { ...input(), reporterId: "attacker", state: "resolved", version: 99, createdAt: "2000-01-01" } as CreateIncidentInput, now);
-    expect(prepared).toMatchObject({ reporterId: "reporter", title: "Empty shelf", description: "No units remain", textEvidence: "Shelf checked", occurredAt: "2026-08-08T09:55:00.000Z", state: "open", version: 1 });
+    expect(prepared).toMatchObject({ reporterId: "reporter", title: "Empty shelf", description: "No units remain", textEvidence: "Shelf checked", occurredAt: "2026-08-08T09:55:00.000Z", state: "open", version: 1, actionCorrelationId: "correlation-a" });
     expect(prepared).not.toHaveProperty("createdAt");
+  });
+
+  it("normalizes the persisted action correlation independently from whitespace", () => {
+    expect(prepareIncidentCreation(principal(), input({ correlationId: " correlation-b " }), now).actionCorrelationId).toBe("correlation-b");
   });
 
   it("rejects missing inputs and blank or oversized attributable evidence", () => {

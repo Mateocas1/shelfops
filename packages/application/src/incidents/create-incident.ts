@@ -1,9 +1,13 @@
 import { actionDecision } from "@shelfops/domain/authorization/action-policy";
+import type { TriageEvaluationResult } from "@shelfops/domain/triage/evaluator";
 import type { AuthorizedPrincipal } from "../authorization/authorized-principal.js";
 
 export type CreateIncidentInput = Readonly<{ storeId: string; sectorId: string; locationId: string; productId?: string; category: string; severity: string; title: string; description: string; occurredAt: string; textEvidence: string; idempotencyKey: string; correlationId: string }>;
-export type PreparedIncidentCreation = CreateIncidentInput & Readonly<{ reporterId: string; state: "open"; version: 1 }>;
-export type IncidentCreated = Readonly<{ status: "created"; incidentId: string; evidenceId: string; eventId: string; reporterId: string; createdAt: string; state: "open"; version: 1 }>;
+export type PreparedIncidentCreation = CreateIncidentInput & Readonly<{ reporterId: string; state: "open"; version: 1; actionCorrelationId: string }>;
+export type InitialTriageEvaluation = TriageEvaluationResult & Readonly<{ id: string; incidentId: string; incidentVersion: 1; evaluatedAt: string; actionCorrelationId: string }>;
+export type InitialTriageProjection = Readonly<{ incidentId: string; state: "open"; version: 1; status: "awaiting-decision"; currentEvaluation: InitialTriageEvaluation; latestDecisions: Readonly<{ category: null; severity: null; assignee: null }>; complete: false }>;
+export type CreationSla = Readonly<{ cycleId: string; cycleSequence: 1; condition: "on-track"; warningAt: string; deadlineAt: string; policyVersionId: string; policyVersion: number; clockMode: "continuous-utc"; pausesWhenBlocked: boolean }>;
+export type IncidentCreated = Readonly<{ status: "created"; incidentId: string; evidenceId: string; eventId: string; triageEventId: string; reporterId: string; createdAt: string; state: "open"; version: 1; actionCorrelationId: string; sla: CreationSla; triage: InitialTriageProjection }>;
 export type IncidentCreationOutcome = IncidentCreated | Readonly<{ status: "indeterminate"; correlationId: string; retryWithSameKey: true }>;
 export class IncidentCreationValidationError extends Error { constructor(message: string) { super(message); } }
 export class IncidentCreationForbiddenError extends Error { constructor() { super("incident-creation-forbidden"); } }
@@ -19,5 +23,5 @@ export function prepareIncidentCreation(principal: AuthorizedPrincipal, input: C
   if (!Number.isFinite(occurred.getTime()) || occurred.getTime() > now.getTime() + 300_000) throw new IncidentCreationValidationError("invalid-occurrence-time");
   const normalized: CreateIncidentInput = { storeId: input.storeId.trim(), sectorId: input.sectorId.trim(), locationId: input.locationId.trim(), ...(input.productId === undefined ? {} : { productId: input.productId.trim() }), category: input.category.trim(), severity: input.severity.trim(), title: input.title.trim(), description: input.description.trim(), occurredAt: occurred.toISOString(), textEvidence, idempotencyKey: input.idempotencyKey.trim(), correlationId: input.correlationId.trim() };
   if (actionDecision(principal.id, principal.active, principal.roleScopes, principal.grants, { id: "new", storeId: normalized.storeId, sectorId: normalized.sectorId, category: normalized.category, reporterId: principal.id }, "create").outcome !== "allowed") throw new IncidentCreationForbiddenError();
-  return { ...normalized, reporterId: principal.id, state: "open", version: 1 };
+  return { ...normalized, reporterId: principal.id, state: "open", version: 1, actionCorrelationId: normalized.correlationId };
 }
