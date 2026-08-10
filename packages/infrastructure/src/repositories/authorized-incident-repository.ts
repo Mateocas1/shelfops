@@ -5,6 +5,8 @@ import type { Pool } from "pg";
 type IncidentState = "open" | "classified" | "in-progress" | "blocked" | "resolved";
 type SlaCondition = "on-track" | "warning" | "breached" | "paused";
 type RecurrenceDecisionState = "pending" | "confirmed" | "dismissed";
+type TriageState = "open" | "classified";
+type JsonObject = Readonly<Record<string, unknown>>;
 type IncidentTable = {
   id: string; organization_id: string; store_id: string; sector_id: string; location_id: string; product_id: string | null;
   category_key: string; severity_key: string; category_provisional: boolean; severity_provisional: boolean;
@@ -30,6 +32,14 @@ export type IncidentRead = Readonly<{
 }>;
 export type IncidentList = Readonly<{ items: readonly IncidentRead[]; nextCursor?: IncidentCursor }>;
 export type IncidentQueryLog = Readonly<{ sql: string; parameters: readonly unknown[] }>;
+type TriageEvaluationRead = Readonly<{ id: string; incidentId: string; incidentVersion: number; rule: Readonly<{ identifier: string; ruleId: string | null; versionId: string; version: number }>; inputs: JsonObject; suggested: JsonObject; explanation: JsonObject; evaluatedAt: string; actionCorrelationId: string }>;
+type TriageDecisionRead = Readonly<{ id: string; setId: string; evaluationId: string; field: "category" | "severity" | "assignee"; disposition: "confirmed" | "corrected" | "manual"; value: string; reason: string | null; actorUserId: string; decidedAt: string; actionCorrelationId: string }>;
+type TriageDecisionSetRead = Readonly<{ id: string; evaluationId: string; sequence: number; complete: boolean; decidedAt: string; actionCorrelationId: string; items: readonly TriageDecisionRead[] }>;
+type CurrentSlaRead = Readonly<{ cycleId: string; cycleSequence: number; condition: SlaCondition; warningAt: string; deadlineAt: string; policyVersionId: string; policyVersion: number; clockMode: "continuous-utc"; pausesWhenBlocked: boolean }>;
+export type IncidentTriageRead = Readonly<{ incidentId: string; state: TriageState; version: number; evaluations: readonly TriageEvaluationRead[]; decisionSets: readonly TriageDecisionSetRead[]; sla: CurrentSlaRead | null }>;
+type TriageEvaluationRow = Readonly<{ id: string; incident_id: string; incident_version: number; rule_version_id: string; rule_version: number; rule_id: string | null; rule_identifier: string; inputs: JsonObject; suggested: JsonObject; explanation: JsonObject; evaluated_at: Date; action_correlation_id: string }>;
+type TriageDecisionRow = Readonly<{ set_id: string; evaluation_id: string; sequence: number; complete: boolean; set_decided_at: Date; set_action_correlation_id: string; item_id: string | null; field: TriageDecisionRead["field"] | null; disposition: TriageDecisionRead["disposition"] | null; value_text: string | null; value_user_id: string | null; reason: string | null; actor_user_id: string | null; item_decided_at: Date | null; item_action_correlation_id: string | null }>;
+type CurrentSlaRow = Readonly<{ cycle_id: string; cycle_sequence: number; condition: SlaCondition; warning_at: Date; deadline_at: Date; policy_version_id: string; policy_version: number; clock_mode: "continuous-utc"; pauses_when_blocked: boolean }>;
 
 export class InvalidIncidentQueryError extends Error {}
 
@@ -77,7 +87,7 @@ function timestamp(value: string | undefined): Date | undefined {
 
 function hasCurrentSlaCondition(eb: IncidentExpressionBuilder, condition: SlaCondition): Expression<SqlBool> {
   const currentCycle = eb.selectFrom("incident_sla_cycles as cycle")
-    .innerJoin("incident_sla_segments as segment", (join) => join.onRef("segment.cycle_id", "=", "cycle.id").onRef("segment.snapshot_id", "=", "cycle.snapshot_id").on("segment.active", "=", true))
+    .innerJoin("incident_sla_segments as segment", (join) => join.onRef("segment.cycle_id", "=", "cycle.id").on("segment.active", "=", true))
     .select("cycle.id").whereRef("cycle.incident_id", "=", "incidents.id").where("cycle.condition", "=", condition)
     .where((inner) => inner.not(inner.exists(inner.selectFrom("incident_sla_cycles as newer").select("newer.id").whereRef("newer.incident_id", "=", "cycle.incident_id").whereRef("newer.sequence", ">", "cycle.sequence"))));
   return eb.exists(currentCycle);
@@ -93,7 +103,7 @@ function hasRecurrenceDecisionState(eb: IncidentExpressionBuilder, state: Recurr
 
 export class PostgresAuthorizedIncidentRepository {
   private readonly database: Kysely<Database>;
-  constructor(pool: Pool, onQuery?: (query: IncidentQueryLog) => void) {
+  constructor(private readonly pool: Pool, onQuery?: (query: IncidentQueryLog) => void) {
     this.database = new Kysely({ dialect: new PostgresDialect({ pool }), log: onQuery ? (event) => { if (event.level === "query") onQuery({ sql: event.query.sql, parameters: event.query.parameters }); } : undefined });
   }
 
@@ -101,6 +111,30 @@ export class PostgresAuthorizedIncidentRepository {
     if (!principal.active) return undefined;
     const row = await this.database.selectFrom("incidents").select(columns).where("incidents.id", "=", incidentId).where((eb) => visibility(eb, principal)).executeTakeFirst();
     return row ? read(row) : undefined;
+  }
+
+  async triage(principal: AuthorizedPrincipal, incidentId: string): Promise<IncidentTriageRead | undefined> {
+    if (!principal.active) return undefined;
+    const incident = await this.database.selectFrom("incidents").select(["incidents.id", "incidents.organization_id", "incidents.state", "incidents.version"]).where("incidents.id", "=", incidentId).where((eb) => visibility(eb, principal)).executeTakeFirst();
+    if (!incident || incident.state !== "open" && incident.state !== "classified") return undefined;
+    const [evaluations, decisions, currentSla] = await Promise.all([
+      this.pool.query<TriageEvaluationRow>("SELECT e.id,e.incident_id,e.incident_version,e.rule_version_id,v.version rule_version,e.rule_id,e.rule_identifier,e.inputs,e.suggested,e.explanation,e.evaluated_at,e.action_correlation_id FROM triage_evaluations e JOIN triage_rule_versions v ON v.id=e.rule_version_id AND v.organization_id=e.organization_id WHERE e.organization_id=$1 AND e.incident_id=$2 ORDER BY e.incident_version DESC,e.id DESC", [incident.organization_id, incident.id]),
+      this.pool.query<TriageDecisionRow>("SELECT s.id set_id,s.evaluation_id,s.sequence,s.complete,s.decided_at set_decided_at,s.action_correlation_id set_action_correlation_id,i.id item_id,i.field,i.disposition,i.value_text,i.value_user_id,i.reason,i.actor_user_id,i.decided_at item_decided_at,i.action_correlation_id item_action_correlation_id FROM triage_decision_sets s JOIN triage_evaluations e ON e.id=s.evaluation_id AND e.organization_id=s.organization_id AND e.incident_id=s.incident_id LEFT JOIN triage_decision_items i ON i.decision_set_id=s.id AND i.organization_id=s.organization_id WHERE s.organization_id=$1 AND s.incident_id=$2 ORDER BY e.incident_version DESC,e.id DESC,s.sequence,s.id,i.id", [incident.organization_id, incident.id]),
+      this.pool.query<CurrentSlaRow>("SELECT cycle.id cycle_id,cycle.sequence cycle_sequence,cycle.condition,segment.warning_at,segment.deadline_at,snapshot.policy_version_id,snapshot.policy_version,snapshot.clock_mode,snapshot.pauses_when_blocked FROM incident_sla_cycles cycle JOIN incident_sla_segments segment ON segment.cycle_id=cycle.id AND segment.incident_id=cycle.incident_id AND segment.active JOIN incident_sla_rule_snapshots snapshot ON snapshot.id=segment.snapshot_id AND snapshot.incident_id=cycle.incident_id WHERE cycle.incident_id=$1 AND NOT EXISTS (SELECT 1 FROM incident_sla_cycles newer WHERE newer.incident_id=cycle.incident_id AND newer.sequence>cycle.sequence)", [incident.id])
+    ]);
+    const sets = new Map<string, { id: string; evaluationId: string; sequence: number; complete: boolean; decidedAt: string; actionCorrelationId: string; items: TriageDecisionRead[] }>();
+    for (const row of decisions.rows) {
+      let set = sets.get(row.set_id);
+      if (!set) { set = { id: row.set_id, evaluationId: row.evaluation_id, sequence: row.sequence, complete: row.complete, decidedAt: row.set_decided_at.toISOString(), actionCorrelationId: row.set_action_correlation_id, items: [] }; sets.set(row.set_id, set); }
+      if (row.item_id !== null) set.items.push({ id: row.item_id, setId: row.set_id, evaluationId: row.evaluation_id, field: row.field!, disposition: row.disposition!, value: row.value_text ?? row.value_user_id!, reason: row.reason, actorUserId: row.actor_user_id!, decidedAt: row.item_decided_at!.toISOString(), actionCorrelationId: row.item_action_correlation_id! });
+    }
+    const sla = currentSla.rows[0];
+    return {
+      incidentId: incident.id, state: incident.state, version: incident.version,
+      evaluations: evaluations.rows.map((row) => ({ id: row.id, incidentId: row.incident_id, incidentVersion: row.incident_version, rule: { identifier: row.rule_identifier, ruleId: row.rule_id, versionId: row.rule_version_id, version: row.rule_version }, inputs: row.inputs, suggested: row.suggested, explanation: row.explanation, evaluatedAt: row.evaluated_at.toISOString(), actionCorrelationId: row.action_correlation_id })),
+      decisionSets: [...sets.values()],
+      sla: sla ? { cycleId: sla.cycle_id, cycleSequence: sla.cycle_sequence, condition: sla.condition, warningAt: sla.warning_at.toISOString(), deadlineAt: sla.deadline_at.toISOString(), policyVersionId: sla.policy_version_id, policyVersion: sla.policy_version, clockMode: sla.clock_mode, pausesWhenBlocked: sla.pauses_when_blocked } : null
+    };
   }
 
   async list(principal: AuthorizedPrincipal, input: IncidentListQuery = {}): Promise<IncidentList> {

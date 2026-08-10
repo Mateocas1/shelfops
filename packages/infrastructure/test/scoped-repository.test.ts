@@ -131,4 +131,49 @@ describe("scope-safe incident repository", () => {
       try { await pool?.end(); } finally { try { await client?.end(); } finally { await container?.stop(); } }
     }
   }, 120_000);
+
+  it("reads visible triage state from the latest cycle's active segment without side effects", async () => {
+    let container: Awaited<ReturnType<PostgreSqlContainer["start"]>> | undefined;
+    let client: Client | undefined;
+    let pool: Pool | undefined;
+    const triage = { incident: id(901), legacyOpen: id(902), legacyClassified: id(903), hidden: id(904), oldEvaluation: id(905), currentEvaluation: id(906), firstSet: id(907), secondSet: id(908), severity: id(909), category: id(910), assignee: id(911), oldCycle: id(912), currentCycle: id(913), historicalSnapshot: id(914), cycleSnapshot: id(915), activeSnapshot: id(916), oldSegment: id(917), activeSegment: id(918) };
+    const inputs = { storeId: ids.storeA, sectorId: ids.sectorA1, locationId: ids.locationA1, productId: null, category: "out-of-stock", severity: "high", eligibleAssigneeIds: [ids.lead] };
+    const suggested = { category: "out-of-stock", severity: "high", assigneeUserId: ids.lead, manualFields: [] };
+    const explanation = { code: "matched-single-eligible", facts: { eligibleAssigneeCount: 1 }, text: "Input category and severity preserved; exactly one eligible assignee suggested." };
+    try {
+      container = await new PostgreSqlContainer(image).withDatabase("triage_read").start();
+      client = new Client({ connectionString: container.getConnectionUri() });
+      await client.connect();
+      for (const migration of ["001_reference-data", "005_incidents-core", "006_team-assignments", "007_incident-creation", "008_sla-policy-and-cycles", "010_recurrence-authority", "011_triage"]) await client.query(await readFile(`migrations/${migration}.sql`, "utf8"));
+      await client.query("INSERT INTO stores(id,organization_id,name) VALUES($1,$3,'Visible'),($2,$3,'Hidden')", [ids.storeA, ids.storeB, ids.organization]);
+      await client.query("INSERT INTO sectors(id,organization_id,store_id,name) VALUES($1,$5,$3,'Visible'),($2,$5,$4,'Hidden')", [ids.sectorA1, ids.sectorB, ids.storeA, ids.storeB, ids.organization]);
+      await client.query("INSERT INTO locations(id,organization_id,store_id,sector_id,name) VALUES($1,$7,$4,$5,'Visible'),($2,$7,$6,$3,'Hidden')", [ids.locationA1, ids.locationB, ids.sectorB, ids.storeA, ids.sectorA1, ids.storeB, ids.organization]);
+      await client.query("INSERT INTO users(id,organization_id,name) VALUES($1,$4,'Viewer'),($2,$4,'Reporter'),($3,$4,'Assignee')", [ids.supervisor, ids.collaborator, ids.lead, ids.organization]);
+      await client.query("INSERT INTO incidents(id,organization_id,store_id,sector_id,location_id,category_key,severity_key,title,description,occurred_at,reporter_user_id,assignee_user_id,state,version) VALUES($1,$5,$6,$7,$8,'out-of-stock','high','Current','Current','2026-08-01T10:00:00Z',$9,$10,'classified',4),($2,$5,$6,$7,$8,'out-of-stock','high','Legacy open','Legacy open','2026-08-01T10:00:00Z',$9,NULL,'open',1),($3,$5,$6,$7,$8,'out-of-stock','high','Legacy classified','Legacy classified','2026-08-01T10:00:00Z',$9,$10,'classified',1),($4,$5,$11,$12,$13,'out-of-stock','high','Hidden','Hidden','2026-08-01T10:00:00Z',$9,NULL,'open',1)", [triage.incident, triage.legacyOpen, triage.legacyClassified, triage.hidden, ids.organization, ids.storeA, ids.sectorA1, ids.locationA1, ids.collaborator, ids.lead, ids.storeB, ids.sectorB, ids.locationB]);
+      for (const [snapshotId, policyVersion] of [[triage.historicalSnapshot, 1], [triage.cycleSnapshot, 7], [triage.activeSnapshot, 9]] as const) await client.query("INSERT INTO incident_sla_rule_snapshots(id,incident_id,organization_id,policy_version_id,policy_version,category_key,severity_key,clock_mode,pauses_when_blocked,warning_after_seconds,deadline_after_seconds) VALUES($1,$2,$3,$4,$5,'out-of-stock','high','continuous-utc',false,60,120)", [snapshotId, triage.incident, ids.organization, id(1), policyVersion]);
+      await client.query("INSERT INTO incident_sla_cycles(id,incident_id,snapshot_id,sequence,condition,started_at,warning_at,deadline_at) VALUES($1,$3,$4,1,'breached','2026-08-01T08:00:00Z','2026-08-01T08:01:00Z','2026-08-01T08:02:00Z'),($2,$3,$5,2,'warning','2026-08-01T09:00:00Z','2026-08-01T09:01:00Z','2026-08-01T09:02:00Z')", [triage.oldCycle, triage.currentCycle, triage.incident, triage.historicalSnapshot, triage.cycleSnapshot]);
+      await client.query("INSERT INTO incident_sla_segments(id,cycle_id,snapshot_id,incident_id,sequence,started_at,warning_at,deadline_at,active) VALUES($1,$2,$4,$6,1,'2026-08-01T08:00:00Z','2026-08-01T08:01:00Z','2026-08-01T08:02:00Z',true),($3,$5,$7,$6,1,'2026-08-01T09:00:00Z','2026-08-01T09:03:00Z','2026-08-01T09:04:00Z',true)", [triage.oldSegment, triage.oldCycle, triage.activeSegment, triage.historicalSnapshot, triage.currentCycle, triage.incident, triage.activeSnapshot]);
+      await client.query("INSERT INTO triage_evaluations(id,organization_id,incident_id,incident_version,rule_version_id,rule_id,rule_identifier,inputs,suggested,explanation,evaluated_at,action_correlation_id) VALUES($1,$2,$3,2,$4,$5,'default-catch-all',$6::jsonb,$7::jsonb,$8::jsonb,'2026-08-01T10:01:00Z','old'),($9,$2,$3,3,$4,$5,'default-catch-all',$6::jsonb,$7::jsonb,$8::jsonb,'2026-08-01T10:02:00Z','current')", [triage.oldEvaluation, ids.organization, triage.incident, id(3), id(4), JSON.stringify(inputs), JSON.stringify(suggested), JSON.stringify(explanation), triage.currentEvaluation]);
+      await client.query("INSERT INTO triage_decision_sets(id,organization_id,incident_id,evaluation_id,sequence,complete,decided_at,action_correlation_id) VALUES($1,$2,$3,$4,2,true,'2026-08-01T10:04:00Z','second'),($5,$2,$3,$4,1,false,'2026-08-01T10:03:00Z','first')", [triage.secondSet, ids.organization, triage.incident, triage.currentEvaluation, triage.firstSet]);
+      await client.query("INSERT INTO triage_decision_items(id,organization_id,decision_set_id,field,disposition,value_text,value_user_id,actor_user_id,decided_at,action_correlation_id) VALUES($1,$2,$3,'severity','confirmed','high',NULL,$4,'2026-08-01T10:03:00Z','severity'),($5,$2,$3,'category','confirmed','out-of-stock',NULL,$4,'2026-08-01T10:03:00Z','category'),($6,$2,$3,'assignee','confirmed',NULL,$7,$4,'2026-08-01T10:03:00Z','assignee'),($8,$2,$9,'category','corrected','inventory-mismatch',NULL,$4,'2026-08-01T10:04:00Z','replacement')", [triage.severity, ids.organization, triage.firstSet, ids.supervisor, triage.category, triage.assignee, ids.lead, id(919), triage.secondSet]);
+      pool = new Pool({ connectionString: container.getConnectionUri() });
+      const repository = new PostgresAuthorizedIncidentRepository(pool);
+      const supervisor = principal(ids.supervisor, "supervisor", [ids.storeA], []);
+      const effects = async () => (await pool!.query("SELECT (SELECT count(*)::int FROM triage_evaluations) evaluations,(SELECT count(*)::int FROM triage_decision_sets) sets,(SELECT count(*)::int FROM triage_decision_items) items,(SELECT version FROM incidents WHERE id=$1)::int version", [triage.incident])).rows[0];
+      const before = await effects();
+      const visible = await repository.triage(supervisor, triage.incident);
+      const after = await effects();
+
+      expect(visible).toMatchObject({ incidentId: triage.incident, state: "classified", version: 4, sla: { cycleId: triage.currentCycle, cycleSequence: 2, condition: "warning", warningAt: "2026-08-01T09:03:00.000Z", deadlineAt: "2026-08-01T09:04:00.000Z", policyVersionId: id(1), policyVersion: 9, clockMode: "continuous-utc", pausesWhenBlocked: false } });
+      expect(visible?.evaluations.map(({ id }) => id)).toEqual([triage.currentEvaluation, triage.oldEvaluation]);
+      expect(visible?.decisionSets.map(({ sequence }) => sequence)).toEqual([1, 2]);
+      expect(visible?.decisionSets).toMatchObject([{ items: [{ field: "severity", value: "high" }, { field: "category", value: "out-of-stock" }, { field: "assignee", value: ids.lead }] }, { complete: true, items: [{ field: "category", value: "inventory-mismatch" }] }]);
+      await expect(repository.triage(supervisor, triage.hidden)).resolves.toBeUndefined();
+      await expect(repository.triage(supervisor, triage.legacyOpen)).resolves.toMatchObject({ state: "open", evaluations: [], decisionSets: [], sla: null });
+      await expect(repository.triage(supervisor, triage.legacyClassified)).resolves.toMatchObject({ state: "classified", evaluations: [], decisionSets: [], sla: null });
+      expect(after).toEqual(before);
+    } finally {
+      try { await pool?.end(); } finally { try { await client?.end(); } finally { await container?.stop(); } }
+    }
+  }, 120_000);
 });
