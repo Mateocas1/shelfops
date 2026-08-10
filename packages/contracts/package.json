@@ -30,6 +30,10 @@
     "./recurrence": {
       "types": "./dist/recurrence.d.ts",
       "default": "./dist/recurrence.js"
+    },
+    "./triage": {
+      "types": "./dist/triage.d.ts",
+      "default": "./dist/triage.js"
     }
   },
   "dependencies": {
