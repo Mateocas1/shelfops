@@ -3,6 +3,7 @@ import { Pool } from "pg";
 import { PostgresIdentityProvider } from "@shelfops/infrastructure/identity/postgres-identity-provider";
 import { PostgresAuthorizedIncidentRepository } from "@shelfops/infrastructure/repositories/authorized-incident-repository";
 import { PostgresIncidentCreationExecutor } from "@shelfops/infrastructure/incidents/postgres-incident-creation-executor";
+import { PostgresTriageAuthorityExecutor } from "@shelfops/infrastructure/triage/postgres-triage-authority-executor";
 import { PostgresConfigurationExecutor } from "@shelfops/infrastructure/reference-data/postgres-configuration-executor";
 import { PostgresSlaPolicyExecutor } from "@shelfops/infrastructure/postgres/sla-policy-executor";
 import { PostgresRecurrenceAuthorityExecutor } from "@shelfops/infrastructure/recurrence/postgres-recurrence-authority-executor";
@@ -20,6 +21,8 @@ export interface StartupOptions {
   configurationExecutor?: ConfigurationExecutor;
   identityProvider?: IdentityProvider;
   incidentCreationExecutor?: BuildApiOptions["incidentCreationExecutor"];
+  triageAuthoritySource?: BuildApiOptions["triageAuthoritySource"];
+  triageAuthorityExecutor?: BuildApiOptions["triageAuthorityExecutor"];
   slaPolicyExecutor?: BuildApiOptions["slaPolicyExecutor"];
   recurrenceDecisionExecutor?: BuildApiOptions["recurrenceDecisionExecutor"];
   cursorSecret?: string;
@@ -75,6 +78,8 @@ export async function startApi(options: StartupOptions = {}): Promise<FastifyIns
     let identityProvider = options.identityProvider;
     let incidentRepository: BuildApiOptions["incidentRepository"];
     let incidentCreationExecutor = options.incidentCreationExecutor;
+    let triageAuthoritySource = options.triageAuthoritySource;
+    let triageAuthorityExecutor = options.triageAuthorityExecutor;
     let slaPolicyExecutor = options.slaPolicyExecutor;
     let recurrenceDecisionExecutor = options.recurrenceDecisionExecutor;
 
@@ -86,15 +91,18 @@ export async function startApi(options: StartupOptions = {}): Promise<FastifyIns
       closeOwnedResource = closeOnce(pool);
       configurationExecutor = new PostgresConfigurationExecutor(pool);
       identityProvider ??= new PostgresIdentityProvider(pool);
-      incidentRepository = new PostgresAuthorizedIncidentRepository(pool as Pool);
+      const repository = new PostgresAuthorizedIncidentRepository(pool as Pool);
+      incidentRepository = repository;
       incidentCreationExecutor ??= new PostgresIncidentCreationExecutor(pool);
+      triageAuthoritySource ??= repository;
+      triageAuthorityExecutor ??= new PostgresTriageAuthorityExecutor(pool);
       slaPolicyExecutor ??= new PostgresSlaPolicyExecutor(pool);
       recurrenceDecisionExecutor ??= new PostgresRecurrenceAuthorityExecutor(pool);
     } else if (!identityProvider) {
       throw new Error("A production identity provider is required with an external configuration executor");
     }
 
-    app = await (options.buildApi ?? buildApi)({ configurationExecutor, identityProvider, incidentRepository, incidentCreationExecutor, slaPolicyExecutor, recurrenceDecisionExecutor, cursorSecret, environment: "production", closeOwnedResource, logError });
+    app = await (options.buildApi ?? buildApi)({ configurationExecutor, identityProvider, incidentRepository, incidentCreationExecutor, triageAuthoritySource, triageAuthorityExecutor, slaPolicyExecutor, recurrenceDecisionExecutor, cursorSecret, environment: "production", closeOwnedResource, logError });
     await app.listen({
       host: options.host ?? process.env.HOST ?? "127.0.0.1",
       port: parsePort(options.port ?? process.env.PORT)

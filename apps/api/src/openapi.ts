@@ -34,7 +34,9 @@ export async function registerApiFoundation(app: FastifyInstance, options: ApiFo
 }
 
 export async function openApiDocument(): Promise<object> {
-  const app = await buildApi({ configurationExecutor: { execute: async () => { throw new Error("Documentation-only executor"); } }, incidentCreationExecutor: { execute: async () => { throw new Error("Documentation-only executor"); } }, slaPolicyExecutor: { execute: async () => { throw new Error("Documentation-only executor"); } }, recurrenceDecisionExecutor: { execute: async () => { throw new Error("Documentation-only executor"); } }, incidentRepository: { list: async () => ({ items: [] }), detail: async () => undefined } });
+  const unavailable = async () => { throw new Error("Documentation-only executor"); };
+  const triageAuthoritySource = { triage: unavailable };
+  const app = await buildApi({ configurationExecutor: { execute: unavailable }, incidentCreationExecutor: { execute: unavailable }, triageAuthorityExecutor: { execute: unavailable, decide: unavailable }, triageAuthoritySource, slaPolicyExecutor: { execute: unavailable }, recurrenceDecisionExecutor: { execute: unavailable }, incidentRepository: { list: async () => ({ items: [] }), detail: async () => undefined } });
   await app.ready();
   const document = app.swagger() as OpenApiRecord;
   const list = document.paths["/api/v1/incidents"].get; const detail = document.paths["/api/v1/incidents/{incidentId}"].get;

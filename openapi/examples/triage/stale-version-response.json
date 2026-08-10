@@ -1,0 +1,1 @@
+{"path":"/api/v1/incidents/00000000-0000-7000-8000-000000000002/triage/decisions","status":409,"body":{"code":"stale-version","message":"Expected version is stale","correlationId":"example-correlation","currentVersion":3,"retrievalUri":"/api/v1/incidents/00000000-0000-7000-8000-000000000002/triage"}}

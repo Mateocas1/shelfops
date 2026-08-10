@@ -5,6 +5,7 @@ import type { SlaPolicyConfigurationExecutor } from "@shelfops/application/sla/c
 import type { RecurrenceDecisionExecutor } from "@shelfops/application/recurrence/authority";
 import type { PostgresAuthorizedIncidentRepository } from "@shelfops/infrastructure/repositories/authorized-incident-repository";
 import type { PostgresIncidentCreationExecutor } from "@shelfops/infrastructure/incidents/postgres-incident-creation-executor";
+import type { PostgresTriageAuthorityExecutor } from "@shelfops/infrastructure/triage/postgres-triage-authority-executor";
 
 import { registerApiFoundation } from "./openapi.js";
 import { registerApiRoutes, type ApiRegistrationDependencies } from "./routes/register.js";
@@ -15,6 +16,8 @@ export interface BuildApiOptions {
   identityProvider?: IdentityProvider;
   incidentRepository?: Pick<PostgresAuthorizedIncidentRepository, "detail" | "list">;
   incidentCreationExecutor?: Pick<PostgresIncidentCreationExecutor, "execute">;
+  triageAuthoritySource?: Pick<PostgresAuthorizedIncidentRepository, "triage">;
+  triageAuthorityExecutor?: Pick<PostgresTriageAuthorityExecutor, "execute" | "decide">;
   slaPolicyExecutor?: SlaPolicyConfigurationExecutor;
   recurrenceDecisionExecutor?: RecurrenceDecisionExecutor;
   cursorSecret?: string;
@@ -38,6 +41,8 @@ export async function buildApi(options: BuildApiOptions): Promise<FastifyInstanc
       identityProvider: options.identityProvider,
       incidentRepository: options.incidentRepository,
       incidentCreationExecutor: options.incidentCreationExecutor,
+      triageAuthoritySource: options.triageAuthoritySource,
+      triageAuthorityExecutor: options.triageAuthorityExecutor,
       slaPolicyExecutor: options.slaPolicyExecutor,
       recurrenceDecisionExecutor: options.recurrenceDecisionExecutor,
       cursorSecret: options.cursorSecret ?? "development-only-cursor-secret"

@@ -1,0 +1,1 @@
+{"path":"/api/v1/incidents/00000000-0000-7000-8000-000000000002/triage/decisions","status":403,"body":{"code":"forbidden","message":"Request is forbidden","correlationId":"example-correlation"}}

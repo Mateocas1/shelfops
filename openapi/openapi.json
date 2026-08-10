@@ -1697,28 +1697,46 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
                   "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "incidentId",
+                    "evidenceId",
+                    "eventId",
+                    "triageEventId",
+                    "reporterId",
+                    "createdAt",
+                    "state",
+                    "version",
+                    "actionCorrelationId",
+                    "sla",
+                    "triage",
+                    "correlationId"
+                  ],
                   "properties": {
                     "incidentId": {
-                      "type": "string",
-                      "format": "uuid"
+                      "format": "uuid",
+                      "type": "string"
                     },
                     "evidenceId": {
-                      "type": "string",
-                      "format": "uuid"
+                      "format": "uuid",
+                      "type": "string"
                     },
                     "eventId": {
-                      "type": "string",
-                      "format": "uuid"
+                      "format": "uuid",
+                      "type": "string"
+                    },
+                    "triageEventId": {
+                      "format": "uuid",
+                      "type": "string"
                     },
                     "reporterId": {
-                      "type": "string",
-                      "format": "uuid"
+                      "format": "uuid",
+                      "type": "string"
                     },
                     "createdAt": {
-                      "type": "string",
-                      "format": "date-time"
+                      "format": "date-time",
+                      "type": "string"
                     },
                     "state": {
                       "type": "string",
@@ -1727,25 +1745,676 @@
                       ]
                     },
                     "version": {
-                      "type": "integer",
+                      "type": "number",
                       "enum": [
                         1
                       ]
                     },
+                    "actionCorrelationId": {
+                      "description": "Server-generated identifier for support correlation.",
+                      "type": "string"
+                    },
+                    "sla": {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": [
+                        "cycleId",
+                        "cycleSequence",
+                        "condition",
+                        "warningAt",
+                        "deadlineAt",
+                        "policyVersionId",
+                        "policyVersion",
+                        "clockMode",
+                        "pausesWhenBlocked"
+                      ],
+                      "properties": {
+                        "cycleId": {
+                          "format": "uuid",
+                          "type": "string"
+                        },
+                        "cycleSequence": {
+                          "type": "number",
+                          "enum": [
+                            1
+                          ]
+                        },
+                        "condition": {
+                          "type": "string",
+                          "enum": [
+                            "on-track"
+                          ]
+                        },
+                        "warningAt": {
+                          "format": "date-time",
+                          "type": "string"
+                        },
+                        "deadlineAt": {
+                          "format": "date-time",
+                          "type": "string"
+                        },
+                        "policyVersionId": {
+                          "format": "uuid",
+                          "type": "string"
+                        },
+                        "policyVersion": {
+                          "minimum": 1,
+                          "type": "integer"
+                        },
+                        "clockMode": {
+                          "type": "string",
+                          "enum": [
+                            "continuous-utc"
+                          ]
+                        },
+                        "pausesWhenBlocked": {
+                          "type": "boolean"
+                        }
+                      }
+                    },
+                    "triage": {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": [
+                        "incidentId",
+                        "state",
+                        "version",
+                        "status",
+                        "currentEvaluation",
+                        "latestDecisions",
+                        "complete"
+                      ],
+                      "properties": {
+                        "incidentId": {
+                          "format": "uuid",
+                          "type": "string"
+                        },
+                        "state": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": [
+                                "open"
+                              ]
+                            },
+                            {
+                              "type": "string",
+                              "enum": [
+                                "classified"
+                              ]
+                            }
+                          ]
+                        },
+                        "version": {
+                          "type": "integer"
+                        },
+                        "status": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": [
+                                "awaiting-evaluation"
+                              ]
+                            },
+                            {
+                              "type": "string",
+                              "enum": [
+                                "awaiting-decision"
+                              ]
+                            },
+                            {
+                              "type": "string",
+                              "enum": [
+                                "complete"
+                              ]
+                            }
+                          ]
+                        },
+                        "currentEvaluation": {
+                          "anyOf": [
+                            {
+                              "additionalProperties": false,
+                              "type": "object",
+                              "required": [
+                                "id",
+                                "incidentId",
+                                "incidentVersion",
+                                "rule",
+                                "inputs",
+                                "suggested",
+                                "explanation",
+                                "evaluatedAt",
+                                "actionCorrelationId"
+                              ],
+                              "properties": {
+                                "id": {
+                                  "format": "uuid",
+                                  "type": "string"
+                                },
+                                "incidentId": {
+                                  "format": "uuid",
+                                  "type": "string"
+                                },
+                                "incidentVersion": {
+                                  "type": "integer"
+                                },
+                                "rule": {
+                                  "additionalProperties": false,
+                                  "type": "object",
+                                  "required": [
+                                    "identifier",
+                                    "ruleId",
+                                    "versionId",
+                                    "version"
+                                  ],
+                                  "properties": {
+                                    "identifier": {
+                                      "type": "string"
+                                    },
+                                    "ruleId": {
+                                      "anyOf": [
+                                        {
+                                          "format": "uuid",
+                                          "type": "string"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "versionId": {
+                                      "format": "uuid",
+                                      "type": "string"
+                                    },
+                                    "version": {
+                                      "type": "integer"
+                                    }
+                                  }
+                                },
+                                "inputs": {
+                                  "additionalProperties": false,
+                                  "type": "object",
+                                  "required": [
+                                    "storeId",
+                                    "sectorId",
+                                    "locationId",
+                                    "productId",
+                                    "category",
+                                    "severity",
+                                    "eligibleAssigneeIds"
+                                  ],
+                                  "properties": {
+                                    "storeId": {
+                                      "format": "uuid",
+                                      "type": "string"
+                                    },
+                                    "sectorId": {
+                                      "format": "uuid",
+                                      "type": "string"
+                                    },
+                                    "locationId": {
+                                      "format": "uuid",
+                                      "type": "string"
+                                    },
+                                    "productId": {
+                                      "anyOf": [
+                                        {
+                                          "format": "uuid",
+                                          "type": "string"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "category": {
+                                      "type": "string"
+                                    },
+                                    "severity": {
+                                      "type": "string"
+                                    },
+                                    "eligibleAssigneeIds": {
+                                      "type": "array",
+                                      "items": {
+                                        "format": "uuid",
+                                        "type": "string"
+                                      }
+                                    }
+                                  }
+                                },
+                                "suggested": {
+                                  "additionalProperties": false,
+                                  "type": "object",
+                                  "required": [
+                                    "category",
+                                    "severity",
+                                    "assigneeUserId",
+                                    "manualFields"
+                                  ],
+                                  "properties": {
+                                    "category": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "severity": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "assigneeUserId": {
+                                      "anyOf": [
+                                        {
+                                          "format": "uuid",
+                                          "type": "string"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "manualFields": {
+                                      "type": "array",
+                                      "items": {
+                                        "anyOf": [
+                                          {
+                                            "type": "string",
+                                            "enum": [
+                                              "category"
+                                            ]
+                                          },
+                                          {
+                                            "type": "string",
+                                            "enum": [
+                                              "severity"
+                                            ]
+                                          },
+                                          {
+                                            "type": "string",
+                                            "enum": [
+                                              "assignee"
+                                            ]
+                                          }
+                                        ]
+                                      }
+                                    }
+                                  }
+                                },
+                                "explanation": {
+                                  "additionalProperties": false,
+                                  "type": "object",
+                                  "required": [
+                                    "code",
+                                    "facts",
+                                    "text"
+                                  ],
+                                  "properties": {
+                                    "code": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "enum": [
+                                            "matched-single-eligible"
+                                          ]
+                                        },
+                                        {
+                                          "type": "string",
+                                          "enum": [
+                                            "manual-assignee-ambiguous"
+                                          ]
+                                        },
+                                        {
+                                          "type": "string",
+                                          "enum": [
+                                            "manual-no-match"
+                                          ]
+                                        }
+                                      ]
+                                    },
+                                    "facts": {
+                                      "additionalProperties": false,
+                                      "type": "object",
+                                      "required": [
+                                        "eligibleAssigneeCount"
+                                      ],
+                                      "properties": {
+                                        "eligibleAssigneeCount": {
+                                          "type": "integer"
+                                        }
+                                      }
+                                    },
+                                    "text": {
+                                      "type": "string"
+                                    }
+                                  }
+                                },
+                                "evaluatedAt": {
+                                  "format": "date-time",
+                                  "type": "string"
+                                },
+                                "actionCorrelationId": {
+                                  "description": "Server-generated identifier for support correlation.",
+                                  "type": "string"
+                                }
+                              }
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "latestDecisions": {
+                          "additionalProperties": false,
+                          "type": "object",
+                          "required": [
+                            "category",
+                            "severity",
+                            "assignee"
+                          ],
+                          "properties": {
+                            "category": {
+                              "anyOf": [
+                                {
+                                  "additionalProperties": false,
+                                  "type": "object",
+                                  "required": [
+                                    "id",
+                                    "setId",
+                                    "evaluationId",
+                                    "disposition",
+                                    "reason",
+                                    "actorUserId",
+                                    "decidedAt",
+                                    "actionCorrelationId",
+                                    "field",
+                                    "value"
+                                  ],
+                                  "properties": {
+                                    "id": {
+                                      "format": "uuid",
+                                      "type": "string"
+                                    },
+                                    "setId": {
+                                      "format": "uuid",
+                                      "type": "string"
+                                    },
+                                    "evaluationId": {
+                                      "format": "uuid",
+                                      "type": "string"
+                                    },
+                                    "disposition": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "enum": [
+                                            "confirmed"
+                                          ]
+                                        },
+                                        {
+                                          "type": "string",
+                                          "enum": [
+                                            "corrected"
+                                          ]
+                                        },
+                                        {
+                                          "type": "string",
+                                          "enum": [
+                                            "manual"
+                                          ]
+                                        }
+                                      ]
+                                    },
+                                    "reason": {
+                                      "anyOf": [
+                                        {
+                                          "minLength": 1,
+                                          "pattern": "\\S",
+                                          "type": "string"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "actorUserId": {
+                                      "format": "uuid",
+                                      "type": "string"
+                                    },
+                                    "decidedAt": {
+                                      "format": "date-time",
+                                      "type": "string"
+                                    },
+                                    "actionCorrelationId": {
+                                      "description": "Server-generated identifier for support correlation.",
+                                      "type": "string"
+                                    },
+                                    "field": {
+                                      "type": "string",
+                                      "enum": [
+                                        "category"
+                                      ]
+                                    },
+                                    "value": {
+                                      "minLength": 1,
+                                      "pattern": "\\S",
+                                      "type": "string"
+                                    }
+                                  }
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "severity": {
+                              "anyOf": [
+                                {
+                                  "additionalProperties": false,
+                                  "type": "object",
+                                  "required": [
+                                    "id",
+                                    "setId",
+                                    "evaluationId",
+                                    "disposition",
+                                    "reason",
+                                    "actorUserId",
+                                    "decidedAt",
+                                    "actionCorrelationId",
+                                    "field",
+                                    "value"
+                                  ],
+                                  "properties": {
+                                    "id": {
+                                      "format": "uuid",
+                                      "type": "string"
+                                    },
+                                    "setId": {
+                                      "format": "uuid",
+                                      "type": "string"
+                                    },
+                                    "evaluationId": {
+                                      "format": "uuid",
+                                      "type": "string"
+                                    },
+                                    "disposition": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "enum": [
+                                            "confirmed"
+                                          ]
+                                        },
+                                        {
+                                          "type": "string",
+                                          "enum": [
+                                            "corrected"
+                                          ]
+                                        },
+                                        {
+                                          "type": "string",
+                                          "enum": [
+                                            "manual"
+                                          ]
+                                        }
+                                      ]
+                                    },
+                                    "reason": {
+                                      "anyOf": [
+                                        {
+                                          "minLength": 1,
+                                          "pattern": "\\S",
+                                          "type": "string"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "actorUserId": {
+                                      "format": "uuid",
+                                      "type": "string"
+                                    },
+                                    "decidedAt": {
+                                      "format": "date-time",
+                                      "type": "string"
+                                    },
+                                    "actionCorrelationId": {
+                                      "description": "Server-generated identifier for support correlation.",
+                                      "type": "string"
+                                    },
+                                    "field": {
+                                      "type": "string",
+                                      "enum": [
+                                        "severity"
+                                      ]
+                                    },
+                                    "value": {
+                                      "minLength": 1,
+                                      "pattern": "\\S",
+                                      "type": "string"
+                                    }
+                                  }
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "assignee": {
+                              "anyOf": [
+                                {
+                                  "additionalProperties": false,
+                                  "type": "object",
+                                  "required": [
+                                    "id",
+                                    "setId",
+                                    "evaluationId",
+                                    "disposition",
+                                    "reason",
+                                    "actorUserId",
+                                    "decidedAt",
+                                    "actionCorrelationId",
+                                    "field",
+                                    "value"
+                                  ],
+                                  "properties": {
+                                    "id": {
+                                      "format": "uuid",
+                                      "type": "string"
+                                    },
+                                    "setId": {
+                                      "format": "uuid",
+                                      "type": "string"
+                                    },
+                                    "evaluationId": {
+                                      "format": "uuid",
+                                      "type": "string"
+                                    },
+                                    "disposition": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "enum": [
+                                            "confirmed"
+                                          ]
+                                        },
+                                        {
+                                          "type": "string",
+                                          "enum": [
+                                            "corrected"
+                                          ]
+                                        },
+                                        {
+                                          "type": "string",
+                                          "enum": [
+                                            "manual"
+                                          ]
+                                        }
+                                      ]
+                                    },
+                                    "reason": {
+                                      "anyOf": [
+                                        {
+                                          "minLength": 1,
+                                          "pattern": "\\S",
+                                          "type": "string"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "actorUserId": {
+                                      "format": "uuid",
+                                      "type": "string"
+                                    },
+                                    "decidedAt": {
+                                      "format": "date-time",
+                                      "type": "string"
+                                    },
+                                    "actionCorrelationId": {
+                                      "description": "Server-generated identifier for support correlation.",
+                                      "type": "string"
+                                    },
+                                    "field": {
+                                      "type": "string",
+                                      "enum": [
+                                        "assignee"
+                                      ]
+                                    },
+                                    "value": {
+                                      "format": "uuid",
+                                      "type": "string"
+                                    }
+                                  }
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            }
+                          }
+                        },
+                        "complete": {
+                          "type": "boolean"
+                        }
+                      }
+                    },
                     "correlationId": {
+                      "description": "Server-generated identifier for support correlation.",
                       "type": "string"
                     }
-                  },
-                  "required": [
-                    "incidentId",
-                    "evidenceId",
-                    "eventId",
-                    "reporterId",
-                    "createdAt",
-                    "state",
-                    "version",
-                    "correlationId"
-                  ]
+                  }
                 }
               }
             }
@@ -2072,6 +2741,3339 @@
           },
           "503": {
             "$ref": "#/paths/~1api~1v1/get/responses/503"
+          }
+        }
+      }
+    },
+    "/api/v1/incidents/{incidentId}/triage/evaluations": {
+      "post": {
+        "summary": "Evaluate deterministic triage for an open incident",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "expectedVersion": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "idempotencyKey": {
+                    "type": "string",
+                    "minLength": 1,
+                    "pattern": "\\S"
+                  }
+                },
+                "required": [
+                  "expectedVersion",
+                  "idempotencyKey"
+                ]
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "incidentId",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "headers": {
+              "X-Correlation-Id": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation for this HTTP request; replays receive a new value."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "evaluation",
+                    "triage",
+                    "actionCorrelationId",
+                    "correlationId"
+                  ],
+                  "properties": {
+                    "evaluation": {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "incidentId",
+                        "incidentVersion",
+                        "rule",
+                        "inputs",
+                        "suggested",
+                        "explanation",
+                        "evaluatedAt",
+                        "actionCorrelationId"
+                      ],
+                      "properties": {
+                        "id": {
+                          "format": "uuid",
+                          "type": "string"
+                        },
+                        "incidentId": {
+                          "format": "uuid",
+                          "type": "string"
+                        },
+                        "incidentVersion": {
+                          "type": "integer"
+                        },
+                        "rule": {
+                          "additionalProperties": false,
+                          "type": "object",
+                          "required": [
+                            "identifier",
+                            "ruleId",
+                            "versionId",
+                            "version"
+                          ],
+                          "properties": {
+                            "identifier": {
+                              "type": "string"
+                            },
+                            "ruleId": {
+                              "anyOf": [
+                                {
+                                  "format": "uuid",
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "versionId": {
+                              "format": "uuid",
+                              "type": "string"
+                            },
+                            "version": {
+                              "type": "integer"
+                            }
+                          }
+                        },
+                        "inputs": {
+                          "additionalProperties": false,
+                          "type": "object",
+                          "required": [
+                            "storeId",
+                            "sectorId",
+                            "locationId",
+                            "productId",
+                            "category",
+                            "severity",
+                            "eligibleAssigneeIds"
+                          ],
+                          "properties": {
+                            "storeId": {
+                              "format": "uuid",
+                              "type": "string"
+                            },
+                            "sectorId": {
+                              "format": "uuid",
+                              "type": "string"
+                            },
+                            "locationId": {
+                              "format": "uuid",
+                              "type": "string"
+                            },
+                            "productId": {
+                              "anyOf": [
+                                {
+                                  "format": "uuid",
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "category": {
+                              "type": "string"
+                            },
+                            "severity": {
+                              "type": "string"
+                            },
+                            "eligibleAssigneeIds": {
+                              "type": "array",
+                              "items": {
+                                "format": "uuid",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "suggested": {
+                          "additionalProperties": false,
+                          "type": "object",
+                          "required": [
+                            "category",
+                            "severity",
+                            "assigneeUserId",
+                            "manualFields"
+                          ],
+                          "properties": {
+                            "category": {
+                              "anyOf": [
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "severity": {
+                              "anyOf": [
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "assigneeUserId": {
+                              "anyOf": [
+                                {
+                                  "format": "uuid",
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "manualFields": {
+                              "type": "array",
+                              "items": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "enum": [
+                                      "category"
+                                    ]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": [
+                                      "severity"
+                                    ]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": [
+                                      "assignee"
+                                    ]
+                                  }
+                                ]
+                              }
+                            }
+                          }
+                        },
+                        "explanation": {
+                          "additionalProperties": false,
+                          "type": "object",
+                          "required": [
+                            "code",
+                            "facts",
+                            "text"
+                          ],
+                          "properties": {
+                            "code": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "matched-single-eligible"
+                                  ]
+                                },
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "manual-assignee-ambiguous"
+                                  ]
+                                },
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "manual-no-match"
+                                  ]
+                                }
+                              ]
+                            },
+                            "facts": {
+                              "additionalProperties": false,
+                              "type": "object",
+                              "required": [
+                                "eligibleAssigneeCount"
+                              ],
+                              "properties": {
+                                "eligibleAssigneeCount": {
+                                  "type": "integer"
+                                }
+                              }
+                            },
+                            "text": {
+                              "type": "string"
+                            }
+                          }
+                        },
+                        "evaluatedAt": {
+                          "format": "date-time",
+                          "type": "string"
+                        },
+                        "actionCorrelationId": {
+                          "description": "Server-generated identifier for support correlation.",
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "triage": {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": [
+                        "incidentId",
+                        "state",
+                        "version",
+                        "status",
+                        "currentEvaluation",
+                        "latestDecisions",
+                        "complete"
+                      ],
+                      "properties": {
+                        "incidentId": {
+                          "format": "uuid",
+                          "type": "string"
+                        },
+                        "state": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": [
+                                "open"
+                              ]
+                            },
+                            {
+                              "type": "string",
+                              "enum": [
+                                "classified"
+                              ]
+                            }
+                          ]
+                        },
+                        "version": {
+                          "type": "integer"
+                        },
+                        "status": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": [
+                                "awaiting-evaluation"
+                              ]
+                            },
+                            {
+                              "type": "string",
+                              "enum": [
+                                "awaiting-decision"
+                              ]
+                            },
+                            {
+                              "type": "string",
+                              "enum": [
+                                "complete"
+                              ]
+                            }
+                          ]
+                        },
+                        "currentEvaluation": {
+                          "anyOf": [
+                            {
+                              "additionalProperties": false,
+                              "type": "object",
+                              "required": [
+                                "id",
+                                "incidentId",
+                                "incidentVersion",
+                                "rule",
+                                "inputs",
+                                "suggested",
+                                "explanation",
+                                "evaluatedAt",
+                                "actionCorrelationId"
+                              ],
+                              "properties": {
+                                "id": {
+                                  "format": "uuid",
+                                  "type": "string"
+                                },
+                                "incidentId": {
+                                  "format": "uuid",
+                                  "type": "string"
+                                },
+                                "incidentVersion": {
+                                  "type": "integer"
+                                },
+                                "rule": {
+                                  "additionalProperties": false,
+                                  "type": "object",
+                                  "required": [
+                                    "identifier",
+                                    "ruleId",
+                                    "versionId",
+                                    "version"
+                                  ],
+                                  "properties": {
+                                    "identifier": {
+                                      "type": "string"
+                                    },
+                                    "ruleId": {
+                                      "anyOf": [
+                                        {
+                                          "format": "uuid",
+                                          "type": "string"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "versionId": {
+                                      "format": "uuid",
+                                      "type": "string"
+                                    },
+                                    "version": {
+                                      "type": "integer"
+                                    }
+                                  }
+                                },
+                                "inputs": {
+                                  "additionalProperties": false,
+                                  "type": "object",
+                                  "required": [
+                                    "storeId",
+                                    "sectorId",
+                                    "locationId",
+                                    "productId",
+                                    "category",
+                                    "severity",
+                                    "eligibleAssigneeIds"
+                                  ],
+                                  "properties": {
+                                    "storeId": {
+                                      "format": "uuid",
+                                      "type": "string"
+                                    },
+                                    "sectorId": {
+                                      "format": "uuid",
+                                      "type": "string"
+                                    },
+                                    "locationId": {
+                                      "format": "uuid",
+                                      "type": "string"
+                                    },
+                                    "productId": {
+                                      "anyOf": [
+                                        {
+                                          "format": "uuid",
+                                          "type": "string"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "category": {
+                                      "type": "string"
+                                    },
+                                    "severity": {
+                                      "type": "string"
+                                    },
+                                    "eligibleAssigneeIds": {
+                                      "type": "array",
+                                      "items": {
+                                        "format": "uuid",
+                                        "type": "string"
+                                      }
+                                    }
+                                  }
+                                },
+                                "suggested": {
+                                  "additionalProperties": false,
+                                  "type": "object",
+                                  "required": [
+                                    "category",
+                                    "severity",
+                                    "assigneeUserId",
+                                    "manualFields"
+                                  ],
+                                  "properties": {
+                                    "category": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "severity": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "assigneeUserId": {
+                                      "anyOf": [
+                                        {
+                                          "format": "uuid",
+                                          "type": "string"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "manualFields": {
+                                      "type": "array",
+                                      "items": {
+                                        "anyOf": [
+                                          {
+                                            "type": "string",
+                                            "enum": [
+                                              "category"
+                                            ]
+                                          },
+                                          {
+                                            "type": "string",
+                                            "enum": [
+                                              "severity"
+                                            ]
+                                          },
+                                          {
+                                            "type": "string",
+                                            "enum": [
+                                              "assignee"
+                                            ]
+                                          }
+                                        ]
+                                      }
+                                    }
+                                  }
+                                },
+                                "explanation": {
+                                  "additionalProperties": false,
+                                  "type": "object",
+                                  "required": [
+                                    "code",
+                                    "facts",
+                                    "text"
+                                  ],
+                                  "properties": {
+                                    "code": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "enum": [
+                                            "matched-single-eligible"
+                                          ]
+                                        },
+                                        {
+                                          "type": "string",
+                                          "enum": [
+                                            "manual-assignee-ambiguous"
+                                          ]
+                                        },
+                                        {
+                                          "type": "string",
+                                          "enum": [
+                                            "manual-no-match"
+                                          ]
+                                        }
+                                      ]
+                                    },
+                                    "facts": {
+                                      "additionalProperties": false,
+                                      "type": "object",
+                                      "required": [
+                                        "eligibleAssigneeCount"
+                                      ],
+                                      "properties": {
+                                        "eligibleAssigneeCount": {
+                                          "type": "integer"
+                                        }
+                                      }
+                                    },
+                                    "text": {
+                                      "type": "string"
+                                    }
+                                  }
+                                },
+                                "evaluatedAt": {
+                                  "format": "date-time",
+                                  "type": "string"
+                                },
+                                "actionCorrelationId": {
+                                  "description": "Server-generated identifier for support correlation.",
+                                  "type": "string"
+                                }
+                              }
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "latestDecisions": {
+                          "additionalProperties": false,
+                          "type": "object",
+                          "required": [
+                            "category",
+                            "severity",
+                            "assignee"
+                          ],
+                          "properties": {
+                            "category": {
+                              "anyOf": [
+                                {
+                                  "additionalProperties": false,
+                                  "type": "object",
+                                  "required": [
+                                    "id",
+                                    "setId",
+                                    "evaluationId",
+                                    "disposition",
+                                    "reason",
+                                    "actorUserId",
+                                    "decidedAt",
+                                    "actionCorrelationId",
+                                    "field",
+                                    "value"
+                                  ],
+                                  "properties": {
+                                    "id": {
+                                      "format": "uuid",
+                                      "type": "string"
+                                    },
+                                    "setId": {
+                                      "format": "uuid",
+                                      "type": "string"
+                                    },
+                                    "evaluationId": {
+                                      "format": "uuid",
+                                      "type": "string"
+                                    },
+                                    "disposition": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "enum": [
+                                            "confirmed"
+                                          ]
+                                        },
+                                        {
+                                          "type": "string",
+                                          "enum": [
+                                            "corrected"
+                                          ]
+                                        },
+                                        {
+                                          "type": "string",
+                                          "enum": [
+                                            "manual"
+                                          ]
+                                        }
+                                      ]
+                                    },
+                                    "reason": {
+                                      "anyOf": [
+                                        {
+                                          "minLength": 1,
+                                          "pattern": "\\S",
+                                          "type": "string"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "actorUserId": {
+                                      "format": "uuid",
+                                      "type": "string"
+                                    },
+                                    "decidedAt": {
+                                      "format": "date-time",
+                                      "type": "string"
+                                    },
+                                    "actionCorrelationId": {
+                                      "description": "Server-generated identifier for support correlation.",
+                                      "type": "string"
+                                    },
+                                    "field": {
+                                      "type": "string",
+                                      "enum": [
+                                        "category"
+                                      ]
+                                    },
+                                    "value": {
+                                      "minLength": 1,
+                                      "pattern": "\\S",
+                                      "type": "string"
+                                    }
+                                  }
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "severity": {
+                              "anyOf": [
+                                {
+                                  "additionalProperties": false,
+                                  "type": "object",
+                                  "required": [
+                                    "id",
+                                    "setId",
+                                    "evaluationId",
+                                    "disposition",
+                                    "reason",
+                                    "actorUserId",
+                                    "decidedAt",
+                                    "actionCorrelationId",
+                                    "field",
+                                    "value"
+                                  ],
+                                  "properties": {
+                                    "id": {
+                                      "format": "uuid",
+                                      "type": "string"
+                                    },
+                                    "setId": {
+                                      "format": "uuid",
+                                      "type": "string"
+                                    },
+                                    "evaluationId": {
+                                      "format": "uuid",
+                                      "type": "string"
+                                    },
+                                    "disposition": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "enum": [
+                                            "confirmed"
+                                          ]
+                                        },
+                                        {
+                                          "type": "string",
+                                          "enum": [
+                                            "corrected"
+                                          ]
+                                        },
+                                        {
+                                          "type": "string",
+                                          "enum": [
+                                            "manual"
+                                          ]
+                                        }
+                                      ]
+                                    },
+                                    "reason": {
+                                      "anyOf": [
+                                        {
+                                          "minLength": 1,
+                                          "pattern": "\\S",
+                                          "type": "string"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "actorUserId": {
+                                      "format": "uuid",
+                                      "type": "string"
+                                    },
+                                    "decidedAt": {
+                                      "format": "date-time",
+                                      "type": "string"
+                                    },
+                                    "actionCorrelationId": {
+                                      "description": "Server-generated identifier for support correlation.",
+                                      "type": "string"
+                                    },
+                                    "field": {
+                                      "type": "string",
+                                      "enum": [
+                                        "severity"
+                                      ]
+                                    },
+                                    "value": {
+                                      "minLength": 1,
+                                      "pattern": "\\S",
+                                      "type": "string"
+                                    }
+                                  }
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "assignee": {
+                              "anyOf": [
+                                {
+                                  "additionalProperties": false,
+                                  "type": "object",
+                                  "required": [
+                                    "id",
+                                    "setId",
+                                    "evaluationId",
+                                    "disposition",
+                                    "reason",
+                                    "actorUserId",
+                                    "decidedAt",
+                                    "actionCorrelationId",
+                                    "field",
+                                    "value"
+                                  ],
+                                  "properties": {
+                                    "id": {
+                                      "format": "uuid",
+                                      "type": "string"
+                                    },
+                                    "setId": {
+                                      "format": "uuid",
+                                      "type": "string"
+                                    },
+                                    "evaluationId": {
+                                      "format": "uuid",
+                                      "type": "string"
+                                    },
+                                    "disposition": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "enum": [
+                                            "confirmed"
+                                          ]
+                                        },
+                                        {
+                                          "type": "string",
+                                          "enum": [
+                                            "corrected"
+                                          ]
+                                        },
+                                        {
+                                          "type": "string",
+                                          "enum": [
+                                            "manual"
+                                          ]
+                                        }
+                                      ]
+                                    },
+                                    "reason": {
+                                      "anyOf": [
+                                        {
+                                          "minLength": 1,
+                                          "pattern": "\\S",
+                                          "type": "string"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "actorUserId": {
+                                      "format": "uuid",
+                                      "type": "string"
+                                    },
+                                    "decidedAt": {
+                                      "format": "date-time",
+                                      "type": "string"
+                                    },
+                                    "actionCorrelationId": {
+                                      "description": "Server-generated identifier for support correlation.",
+                                      "type": "string"
+                                    },
+                                    "field": {
+                                      "type": "string",
+                                      "enum": [
+                                        "assignee"
+                                      ]
+                                    },
+                                    "value": {
+                                      "format": "uuid",
+                                      "type": "string"
+                                    }
+                                  }
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            }
+                          }
+                        },
+                        "complete": {
+                          "type": "boolean"
+                        }
+                      }
+                    },
+                    "actionCorrelationId": {
+                      "description": "Server-generated identifier for support correlation.",
+                      "type": "string"
+                    },
+                    "correlationId": {
+                      "description": "Server-generated identifier for support correlation.",
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "headers": {
+              "X-Correlation-Id": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation for this HTTP request; replays receive a new value."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "code",
+                    "message",
+                    "correlationId",
+                    "fields"
+                  ],
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "validation-failed"
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "correlationId": {
+                      "description": "Server-generated identifier for support correlation.",
+                      "type": "string"
+                    },
+                    "fields": {
+                      "type": "array",
+                      "items": {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "name",
+                          "code"
+                        ],
+                        "properties": {
+                          "name": {
+                            "type": "string"
+                          },
+                          "code": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "headers": {
+              "X-Correlation-Id": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation for this HTTP request; replays receive a new value."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "code",
+                    "message",
+                    "correlationId"
+                  ],
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "authentication-required"
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "correlationId": {
+                      "description": "Server-generated identifier for support correlation.",
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "headers": {
+              "X-Correlation-Id": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation for this HTTP request; replays receive a new value."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "code",
+                    "message",
+                    "correlationId"
+                  ],
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "forbidden"
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "correlationId": {
+                      "description": "Server-generated identifier for support correlation.",
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "headers": {
+              "X-Correlation-Id": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation for this HTTP request; replays receive a new value."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "code",
+                    "message",
+                    "correlationId"
+                  ],
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "not-found"
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "correlationId": {
+                      "description": "Server-generated identifier for support correlation.",
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Default Response",
+            "headers": {
+              "X-Correlation-Id": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation for this HTTP request; replays receive a new value."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "message",
+                        "correlationId"
+                      ],
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "idempotency-conflict"
+                          ]
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "correlationId": {
+                          "description": "Server-generated identifier for support correlation.",
+                          "type": "string"
+                        }
+                      }
+                    },
+                    {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "message",
+                        "correlationId",
+                        "currentVersion",
+                        "retrievalUri"
+                      ],
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "stale-version"
+                          ]
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "correlationId": {
+                          "description": "Server-generated identifier for support correlation.",
+                          "type": "string"
+                        },
+                        "currentVersion": {
+                          "minimum": 1,
+                          "type": "integer"
+                        },
+                        "retrievalUri": {
+                          "pattern": "^/api/v1/incidents/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/triage$",
+                          "type": "string"
+                        }
+                      }
+                    },
+                    {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "message",
+                        "correlationId",
+                        "currentState"
+                      ],
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "invalid-transition"
+                          ]
+                        },
+                        "message": {
+                          "type": "string",
+                          "enum": [
+                            "Incident must be open for triage"
+                          ]
+                        },
+                        "correlationId": {
+                          "description": "Server-generated identifier for support correlation.",
+                          "type": "string"
+                        },
+                        "currentState": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": [
+                                "classified"
+                              ]
+                            },
+                            {
+                              "type": "string",
+                              "enum": [
+                                "in-progress"
+                              ]
+                            },
+                            {
+                              "type": "string",
+                              "enum": [
+                                "blocked"
+                              ]
+                            },
+                            {
+                              "type": "string",
+                              "enum": [
+                                "resolved"
+                              ]
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "headers": {
+              "X-Correlation-Id": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation for this HTTP request; replays receive a new value."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "code",
+                    "message",
+                    "correlationId"
+                  ],
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "temporarily-unavailable"
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "correlationId": {
+                      "description": "Server-generated identifier for support correlation.",
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/incidents/{incidentId}/triage": {
+      "get": {
+        "summary": "Read visible incident triage",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "incidentId",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "headers": {
+              "X-Correlation-Id": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Server-generated identifier for support correlation."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "incidentId",
+                    "state",
+                    "version",
+                    "status",
+                    "currentEvaluation",
+                    "latestDecisions",
+                    "complete"
+                  ],
+                  "properties": {
+                    "incidentId": {
+                      "format": "uuid",
+                      "type": "string"
+                    },
+                    "state": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "open"
+                          ]
+                        },
+                        {
+                          "type": "string",
+                          "enum": [
+                            "classified"
+                          ]
+                        }
+                      ]
+                    },
+                    "version": {
+                      "type": "integer"
+                    },
+                    "status": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "awaiting-evaluation"
+                          ]
+                        },
+                        {
+                          "type": "string",
+                          "enum": [
+                            "awaiting-decision"
+                          ]
+                        },
+                        {
+                          "type": "string",
+                          "enum": [
+                            "complete"
+                          ]
+                        }
+                      ]
+                    },
+                    "currentEvaluation": {
+                      "anyOf": [
+                        {
+                          "additionalProperties": false,
+                          "type": "object",
+                          "required": [
+                            "id",
+                            "incidentId",
+                            "incidentVersion",
+                            "rule",
+                            "inputs",
+                            "suggested",
+                            "explanation",
+                            "evaluatedAt",
+                            "actionCorrelationId"
+                          ],
+                          "properties": {
+                            "id": {
+                              "format": "uuid",
+                              "type": "string"
+                            },
+                            "incidentId": {
+                              "format": "uuid",
+                              "type": "string"
+                            },
+                            "incidentVersion": {
+                              "type": "integer"
+                            },
+                            "rule": {
+                              "additionalProperties": false,
+                              "type": "object",
+                              "required": [
+                                "identifier",
+                                "ruleId",
+                                "versionId",
+                                "version"
+                              ],
+                              "properties": {
+                                "identifier": {
+                                  "type": "string"
+                                },
+                                "ruleId": {
+                                  "anyOf": [
+                                    {
+                                      "format": "uuid",
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "versionId": {
+                                  "format": "uuid",
+                                  "type": "string"
+                                },
+                                "version": {
+                                  "type": "integer"
+                                }
+                              }
+                            },
+                            "inputs": {
+                              "additionalProperties": false,
+                              "type": "object",
+                              "required": [
+                                "storeId",
+                                "sectorId",
+                                "locationId",
+                                "productId",
+                                "category",
+                                "severity",
+                                "eligibleAssigneeIds"
+                              ],
+                              "properties": {
+                                "storeId": {
+                                  "format": "uuid",
+                                  "type": "string"
+                                },
+                                "sectorId": {
+                                  "format": "uuid",
+                                  "type": "string"
+                                },
+                                "locationId": {
+                                  "format": "uuid",
+                                  "type": "string"
+                                },
+                                "productId": {
+                                  "anyOf": [
+                                    {
+                                      "format": "uuid",
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "category": {
+                                  "type": "string"
+                                },
+                                "severity": {
+                                  "type": "string"
+                                },
+                                "eligibleAssigneeIds": {
+                                  "type": "array",
+                                  "items": {
+                                    "format": "uuid",
+                                    "type": "string"
+                                  }
+                                }
+                              }
+                            },
+                            "suggested": {
+                              "additionalProperties": false,
+                              "type": "object",
+                              "required": [
+                                "category",
+                                "severity",
+                                "assigneeUserId",
+                                "manualFields"
+                              ],
+                              "properties": {
+                                "category": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "severity": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "assigneeUserId": {
+                                  "anyOf": [
+                                    {
+                                      "format": "uuid",
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "manualFields": {
+                                  "type": "array",
+                                  "items": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "enum": [
+                                          "category"
+                                        ]
+                                      },
+                                      {
+                                        "type": "string",
+                                        "enum": [
+                                          "severity"
+                                        ]
+                                      },
+                                      {
+                                        "type": "string",
+                                        "enum": [
+                                          "assignee"
+                                        ]
+                                      }
+                                    ]
+                                  }
+                                }
+                              }
+                            },
+                            "explanation": {
+                              "additionalProperties": false,
+                              "type": "object",
+                              "required": [
+                                "code",
+                                "facts",
+                                "text"
+                              ],
+                              "properties": {
+                                "code": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "enum": [
+                                        "matched-single-eligible"
+                                      ]
+                                    },
+                                    {
+                                      "type": "string",
+                                      "enum": [
+                                        "manual-assignee-ambiguous"
+                                      ]
+                                    },
+                                    {
+                                      "type": "string",
+                                      "enum": [
+                                        "manual-no-match"
+                                      ]
+                                    }
+                                  ]
+                                },
+                                "facts": {
+                                  "additionalProperties": false,
+                                  "type": "object",
+                                  "required": [
+                                    "eligibleAssigneeCount"
+                                  ],
+                                  "properties": {
+                                    "eligibleAssigneeCount": {
+                                      "type": "integer"
+                                    }
+                                  }
+                                },
+                                "text": {
+                                  "type": "string"
+                                }
+                              }
+                            },
+                            "evaluatedAt": {
+                              "format": "date-time",
+                              "type": "string"
+                            },
+                            "actionCorrelationId": {
+                              "description": "Server-generated identifier for support correlation.",
+                              "type": "string"
+                            }
+                          }
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "latestDecisions": {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": [
+                        "category",
+                        "severity",
+                        "assignee"
+                      ],
+                      "properties": {
+                        "category": {
+                          "anyOf": [
+                            {
+                              "additionalProperties": false,
+                              "type": "object",
+                              "required": [
+                                "id",
+                                "setId",
+                                "evaluationId",
+                                "disposition",
+                                "reason",
+                                "actorUserId",
+                                "decidedAt",
+                                "actionCorrelationId",
+                                "field",
+                                "value"
+                              ],
+                              "properties": {
+                                "id": {
+                                  "format": "uuid",
+                                  "type": "string"
+                                },
+                                "setId": {
+                                  "format": "uuid",
+                                  "type": "string"
+                                },
+                                "evaluationId": {
+                                  "format": "uuid",
+                                  "type": "string"
+                                },
+                                "disposition": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "enum": [
+                                        "confirmed"
+                                      ]
+                                    },
+                                    {
+                                      "type": "string",
+                                      "enum": [
+                                        "corrected"
+                                      ]
+                                    },
+                                    {
+                                      "type": "string",
+                                      "enum": [
+                                        "manual"
+                                      ]
+                                    }
+                                  ]
+                                },
+                                "reason": {
+                                  "anyOf": [
+                                    {
+                                      "minLength": 1,
+                                      "pattern": "\\S",
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "actorUserId": {
+                                  "format": "uuid",
+                                  "type": "string"
+                                },
+                                "decidedAt": {
+                                  "format": "date-time",
+                                  "type": "string"
+                                },
+                                "actionCorrelationId": {
+                                  "description": "Server-generated identifier for support correlation.",
+                                  "type": "string"
+                                },
+                                "field": {
+                                  "type": "string",
+                                  "enum": [
+                                    "category"
+                                  ]
+                                },
+                                "value": {
+                                  "minLength": 1,
+                                  "pattern": "\\S",
+                                  "type": "string"
+                                }
+                              }
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "severity": {
+                          "anyOf": [
+                            {
+                              "additionalProperties": false,
+                              "type": "object",
+                              "required": [
+                                "id",
+                                "setId",
+                                "evaluationId",
+                                "disposition",
+                                "reason",
+                                "actorUserId",
+                                "decidedAt",
+                                "actionCorrelationId",
+                                "field",
+                                "value"
+                              ],
+                              "properties": {
+                                "id": {
+                                  "format": "uuid",
+                                  "type": "string"
+                                },
+                                "setId": {
+                                  "format": "uuid",
+                                  "type": "string"
+                                },
+                                "evaluationId": {
+                                  "format": "uuid",
+                                  "type": "string"
+                                },
+                                "disposition": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "enum": [
+                                        "confirmed"
+                                      ]
+                                    },
+                                    {
+                                      "type": "string",
+                                      "enum": [
+                                        "corrected"
+                                      ]
+                                    },
+                                    {
+                                      "type": "string",
+                                      "enum": [
+                                        "manual"
+                                      ]
+                                    }
+                                  ]
+                                },
+                                "reason": {
+                                  "anyOf": [
+                                    {
+                                      "minLength": 1,
+                                      "pattern": "\\S",
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "actorUserId": {
+                                  "format": "uuid",
+                                  "type": "string"
+                                },
+                                "decidedAt": {
+                                  "format": "date-time",
+                                  "type": "string"
+                                },
+                                "actionCorrelationId": {
+                                  "description": "Server-generated identifier for support correlation.",
+                                  "type": "string"
+                                },
+                                "field": {
+                                  "type": "string",
+                                  "enum": [
+                                    "severity"
+                                  ]
+                                },
+                                "value": {
+                                  "minLength": 1,
+                                  "pattern": "\\S",
+                                  "type": "string"
+                                }
+                              }
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "assignee": {
+                          "anyOf": [
+                            {
+                              "additionalProperties": false,
+                              "type": "object",
+                              "required": [
+                                "id",
+                                "setId",
+                                "evaluationId",
+                                "disposition",
+                                "reason",
+                                "actorUserId",
+                                "decidedAt",
+                                "actionCorrelationId",
+                                "field",
+                                "value"
+                              ],
+                              "properties": {
+                                "id": {
+                                  "format": "uuid",
+                                  "type": "string"
+                                },
+                                "setId": {
+                                  "format": "uuid",
+                                  "type": "string"
+                                },
+                                "evaluationId": {
+                                  "format": "uuid",
+                                  "type": "string"
+                                },
+                                "disposition": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "enum": [
+                                        "confirmed"
+                                      ]
+                                    },
+                                    {
+                                      "type": "string",
+                                      "enum": [
+                                        "corrected"
+                                      ]
+                                    },
+                                    {
+                                      "type": "string",
+                                      "enum": [
+                                        "manual"
+                                      ]
+                                    }
+                                  ]
+                                },
+                                "reason": {
+                                  "anyOf": [
+                                    {
+                                      "minLength": 1,
+                                      "pattern": "\\S",
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "actorUserId": {
+                                  "format": "uuid",
+                                  "type": "string"
+                                },
+                                "decidedAt": {
+                                  "format": "date-time",
+                                  "type": "string"
+                                },
+                                "actionCorrelationId": {
+                                  "description": "Server-generated identifier for support correlation.",
+                                  "type": "string"
+                                },
+                                "field": {
+                                  "type": "string",
+                                  "enum": [
+                                    "assignee"
+                                  ]
+                                },
+                                "value": {
+                                  "format": "uuid",
+                                  "type": "string"
+                                }
+                              }
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      }
+                    },
+                    "complete": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "headers": {
+              "X-Correlation-Id": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Server-generated identifier for support correlation."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "code",
+                    "message",
+                    "correlationId",
+                    "fields"
+                  ],
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "validation-failed"
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "correlationId": {
+                      "description": "Server-generated identifier for support correlation.",
+                      "type": "string"
+                    },
+                    "fields": {
+                      "type": "array",
+                      "items": {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "name",
+                          "code"
+                        ],
+                        "properties": {
+                          "name": {
+                            "type": "string"
+                          },
+                          "code": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "headers": {
+              "X-Correlation-Id": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Server-generated identifier for support correlation."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "code",
+                    "message",
+                    "correlationId"
+                  ],
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "authentication-required"
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "correlationId": {
+                      "description": "Server-generated identifier for support correlation.",
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "headers": {
+              "X-Correlation-Id": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Server-generated identifier for support correlation."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "code",
+                    "message",
+                    "correlationId"
+                  ],
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "not-found"
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "correlationId": {
+                      "description": "Server-generated identifier for support correlation.",
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "headers": {
+              "X-Correlation-Id": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Server-generated identifier for support correlation."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "code",
+                    "message",
+                    "correlationId"
+                  ],
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "temporarily-unavailable"
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "correlationId": {
+                      "description": "Server-generated identifier for support correlation.",
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/incidents/{incidentId}/triage/decisions": {
+      "post": {
+        "summary": "Record accountable triage decisions for an open incident",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "evaluationId",
+                  "expectedVersion",
+                  "idempotencyKey",
+                  "complete",
+                  "decisions"
+                ],
+                "properties": {
+                  "evaluationId": {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "expectedVersion": {
+                    "minimum": 1,
+                    "type": "integer"
+                  },
+                  "idempotencyKey": {
+                    "minLength": 1,
+                    "pattern": "\\S",
+                    "type": "string"
+                  },
+                  "complete": {
+                    "type": "boolean"
+                  },
+                  "decisions": {
+                    "minItems": 1,
+                    "maxItems": 3,
+                    "type": "array",
+                    "items": {
+                      "anyOf": [
+                        {
+                          "additionalProperties": false,
+                          "type": "object",
+                          "required": [
+                            "field",
+                            "disposition",
+                            "value"
+                          ],
+                          "properties": {
+                            "field": {
+                              "type": "string",
+                              "enum": [
+                                "category"
+                              ]
+                            },
+                            "disposition": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "confirmed"
+                                  ]
+                                },
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "corrected"
+                                  ]
+                                },
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "manual"
+                                  ]
+                                }
+                              ]
+                            },
+                            "value": {
+                              "minLength": 1,
+                              "pattern": "\\S",
+                              "type": "string"
+                            },
+                            "reason": {
+                              "minLength": 1,
+                              "pattern": "\\S",
+                              "type": "string"
+                            }
+                          }
+                        },
+                        {
+                          "additionalProperties": false,
+                          "type": "object",
+                          "required": [
+                            "field",
+                            "disposition",
+                            "value"
+                          ],
+                          "properties": {
+                            "field": {
+                              "type": "string",
+                              "enum": [
+                                "severity"
+                              ]
+                            },
+                            "disposition": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "confirmed"
+                                  ]
+                                },
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "corrected"
+                                  ]
+                                },
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "manual"
+                                  ]
+                                }
+                              ]
+                            },
+                            "value": {
+                              "minLength": 1,
+                              "pattern": "\\S",
+                              "type": "string"
+                            },
+                            "reason": {
+                              "minLength": 1,
+                              "pattern": "\\S",
+                              "type": "string"
+                            }
+                          }
+                        },
+                        {
+                          "additionalProperties": false,
+                          "type": "object",
+                          "required": [
+                            "field",
+                            "disposition",
+                            "value"
+                          ],
+                          "properties": {
+                            "field": {
+                              "type": "string",
+                              "enum": [
+                                "assignee"
+                              ]
+                            },
+                            "disposition": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "confirmed"
+                                  ]
+                                },
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "corrected"
+                                  ]
+                                },
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "manual"
+                                  ]
+                                }
+                              ]
+                            },
+                            "value": {
+                              "format": "uuid",
+                              "type": "string"
+                            },
+                            "reason": {
+                              "minLength": 1,
+                              "pattern": "\\S",
+                              "type": "string"
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "incidentId",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "headers": {
+              "X-Correlation-Id": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation for this HTTP request; replays receive a new value."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "decisionSet",
+                    "triage",
+                    "actionCorrelationId",
+                    "correlationId"
+                  ],
+                  "properties": {
+                    "decisionSet": {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "evaluationId",
+                        "sequence",
+                        "recordedFields",
+                        "complete",
+                        "decidedAt"
+                      ],
+                      "properties": {
+                        "id": {
+                          "format": "uuid",
+                          "type": "string"
+                        },
+                        "evaluationId": {
+                          "format": "uuid",
+                          "type": "string"
+                        },
+                        "sequence": {
+                          "minimum": 1,
+                          "type": "integer"
+                        },
+                        "recordedFields": {
+                          "minItems": 1,
+                          "maxItems": 3,
+                          "type": "array",
+                          "items": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "category"
+                                ]
+                              },
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "severity"
+                                ]
+                              },
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "assignee"
+                                ]
+                              }
+                            ]
+                          }
+                        },
+                        "complete": {
+                          "type": "boolean"
+                        },
+                        "decidedAt": {
+                          "format": "date-time",
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "triage": {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": [
+                        "incidentId",
+                        "state",
+                        "version",
+                        "status",
+                        "currentEvaluation",
+                        "latestDecisions",
+                        "complete"
+                      ],
+                      "properties": {
+                        "incidentId": {
+                          "format": "uuid",
+                          "type": "string"
+                        },
+                        "state": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": [
+                                "open"
+                              ]
+                            },
+                            {
+                              "type": "string",
+                              "enum": [
+                                "classified"
+                              ]
+                            }
+                          ]
+                        },
+                        "version": {
+                          "type": "integer"
+                        },
+                        "status": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": [
+                                "awaiting-evaluation"
+                              ]
+                            },
+                            {
+                              "type": "string",
+                              "enum": [
+                                "awaiting-decision"
+                              ]
+                            },
+                            {
+                              "type": "string",
+                              "enum": [
+                                "complete"
+                              ]
+                            }
+                          ]
+                        },
+                        "currentEvaluation": {
+                          "anyOf": [
+                            {
+                              "additionalProperties": false,
+                              "type": "object",
+                              "required": [
+                                "id",
+                                "incidentId",
+                                "incidentVersion",
+                                "rule",
+                                "inputs",
+                                "suggested",
+                                "explanation",
+                                "evaluatedAt",
+                                "actionCorrelationId"
+                              ],
+                              "properties": {
+                                "id": {
+                                  "format": "uuid",
+                                  "type": "string"
+                                },
+                                "incidentId": {
+                                  "format": "uuid",
+                                  "type": "string"
+                                },
+                                "incidentVersion": {
+                                  "type": "integer"
+                                },
+                                "rule": {
+                                  "additionalProperties": false,
+                                  "type": "object",
+                                  "required": [
+                                    "identifier",
+                                    "ruleId",
+                                    "versionId",
+                                    "version"
+                                  ],
+                                  "properties": {
+                                    "identifier": {
+                                      "type": "string"
+                                    },
+                                    "ruleId": {
+                                      "anyOf": [
+                                        {
+                                          "format": "uuid",
+                                          "type": "string"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "versionId": {
+                                      "format": "uuid",
+                                      "type": "string"
+                                    },
+                                    "version": {
+                                      "type": "integer"
+                                    }
+                                  }
+                                },
+                                "inputs": {
+                                  "additionalProperties": false,
+                                  "type": "object",
+                                  "required": [
+                                    "storeId",
+                                    "sectorId",
+                                    "locationId",
+                                    "productId",
+                                    "category",
+                                    "severity",
+                                    "eligibleAssigneeIds"
+                                  ],
+                                  "properties": {
+                                    "storeId": {
+                                      "format": "uuid",
+                                      "type": "string"
+                                    },
+                                    "sectorId": {
+                                      "format": "uuid",
+                                      "type": "string"
+                                    },
+                                    "locationId": {
+                                      "format": "uuid",
+                                      "type": "string"
+                                    },
+                                    "productId": {
+                                      "anyOf": [
+                                        {
+                                          "format": "uuid",
+                                          "type": "string"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "category": {
+                                      "type": "string"
+                                    },
+                                    "severity": {
+                                      "type": "string"
+                                    },
+                                    "eligibleAssigneeIds": {
+                                      "type": "array",
+                                      "items": {
+                                        "format": "uuid",
+                                        "type": "string"
+                                      }
+                                    }
+                                  }
+                                },
+                                "suggested": {
+                                  "additionalProperties": false,
+                                  "type": "object",
+                                  "required": [
+                                    "category",
+                                    "severity",
+                                    "assigneeUserId",
+                                    "manualFields"
+                                  ],
+                                  "properties": {
+                                    "category": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "severity": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "assigneeUserId": {
+                                      "anyOf": [
+                                        {
+                                          "format": "uuid",
+                                          "type": "string"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "manualFields": {
+                                      "type": "array",
+                                      "items": {
+                                        "anyOf": [
+                                          {
+                                            "type": "string",
+                                            "enum": [
+                                              "category"
+                                            ]
+                                          },
+                                          {
+                                            "type": "string",
+                                            "enum": [
+                                              "severity"
+                                            ]
+                                          },
+                                          {
+                                            "type": "string",
+                                            "enum": [
+                                              "assignee"
+                                            ]
+                                          }
+                                        ]
+                                      }
+                                    }
+                                  }
+                                },
+                                "explanation": {
+                                  "additionalProperties": false,
+                                  "type": "object",
+                                  "required": [
+                                    "code",
+                                    "facts",
+                                    "text"
+                                  ],
+                                  "properties": {
+                                    "code": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "enum": [
+                                            "matched-single-eligible"
+                                          ]
+                                        },
+                                        {
+                                          "type": "string",
+                                          "enum": [
+                                            "manual-assignee-ambiguous"
+                                          ]
+                                        },
+                                        {
+                                          "type": "string",
+                                          "enum": [
+                                            "manual-no-match"
+                                          ]
+                                        }
+                                      ]
+                                    },
+                                    "facts": {
+                                      "additionalProperties": false,
+                                      "type": "object",
+                                      "required": [
+                                        "eligibleAssigneeCount"
+                                      ],
+                                      "properties": {
+                                        "eligibleAssigneeCount": {
+                                          "type": "integer"
+                                        }
+                                      }
+                                    },
+                                    "text": {
+                                      "type": "string"
+                                    }
+                                  }
+                                },
+                                "evaluatedAt": {
+                                  "format": "date-time",
+                                  "type": "string"
+                                },
+                                "actionCorrelationId": {
+                                  "description": "Server-generated identifier for support correlation.",
+                                  "type": "string"
+                                }
+                              }
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "latestDecisions": {
+                          "additionalProperties": false,
+                          "type": "object",
+                          "required": [
+                            "category",
+                            "severity",
+                            "assignee"
+                          ],
+                          "properties": {
+                            "category": {
+                              "anyOf": [
+                                {
+                                  "additionalProperties": false,
+                                  "type": "object",
+                                  "required": [
+                                    "id",
+                                    "setId",
+                                    "evaluationId",
+                                    "disposition",
+                                    "reason",
+                                    "actorUserId",
+                                    "decidedAt",
+                                    "actionCorrelationId",
+                                    "field",
+                                    "value"
+                                  ],
+                                  "properties": {
+                                    "id": {
+                                      "format": "uuid",
+                                      "type": "string"
+                                    },
+                                    "setId": {
+                                      "format": "uuid",
+                                      "type": "string"
+                                    },
+                                    "evaluationId": {
+                                      "format": "uuid",
+                                      "type": "string"
+                                    },
+                                    "disposition": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "enum": [
+                                            "confirmed"
+                                          ]
+                                        },
+                                        {
+                                          "type": "string",
+                                          "enum": [
+                                            "corrected"
+                                          ]
+                                        },
+                                        {
+                                          "type": "string",
+                                          "enum": [
+                                            "manual"
+                                          ]
+                                        }
+                                      ]
+                                    },
+                                    "reason": {
+                                      "anyOf": [
+                                        {
+                                          "minLength": 1,
+                                          "pattern": "\\S",
+                                          "type": "string"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "actorUserId": {
+                                      "format": "uuid",
+                                      "type": "string"
+                                    },
+                                    "decidedAt": {
+                                      "format": "date-time",
+                                      "type": "string"
+                                    },
+                                    "actionCorrelationId": {
+                                      "description": "Server-generated identifier for support correlation.",
+                                      "type": "string"
+                                    },
+                                    "field": {
+                                      "type": "string",
+                                      "enum": [
+                                        "category"
+                                      ]
+                                    },
+                                    "value": {
+                                      "minLength": 1,
+                                      "pattern": "\\S",
+                                      "type": "string"
+                                    }
+                                  }
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "severity": {
+                              "anyOf": [
+                                {
+                                  "additionalProperties": false,
+                                  "type": "object",
+                                  "required": [
+                                    "id",
+                                    "setId",
+                                    "evaluationId",
+                                    "disposition",
+                                    "reason",
+                                    "actorUserId",
+                                    "decidedAt",
+                                    "actionCorrelationId",
+                                    "field",
+                                    "value"
+                                  ],
+                                  "properties": {
+                                    "id": {
+                                      "format": "uuid",
+                                      "type": "string"
+                                    },
+                                    "setId": {
+                                      "format": "uuid",
+                                      "type": "string"
+                                    },
+                                    "evaluationId": {
+                                      "format": "uuid",
+                                      "type": "string"
+                                    },
+                                    "disposition": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "enum": [
+                                            "confirmed"
+                                          ]
+                                        },
+                                        {
+                                          "type": "string",
+                                          "enum": [
+                                            "corrected"
+                                          ]
+                                        },
+                                        {
+                                          "type": "string",
+                                          "enum": [
+                                            "manual"
+                                          ]
+                                        }
+                                      ]
+                                    },
+                                    "reason": {
+                                      "anyOf": [
+                                        {
+                                          "minLength": 1,
+                                          "pattern": "\\S",
+                                          "type": "string"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "actorUserId": {
+                                      "format": "uuid",
+                                      "type": "string"
+                                    },
+                                    "decidedAt": {
+                                      "format": "date-time",
+                                      "type": "string"
+                                    },
+                                    "actionCorrelationId": {
+                                      "description": "Server-generated identifier for support correlation.",
+                                      "type": "string"
+                                    },
+                                    "field": {
+                                      "type": "string",
+                                      "enum": [
+                                        "severity"
+                                      ]
+                                    },
+                                    "value": {
+                                      "minLength": 1,
+                                      "pattern": "\\S",
+                                      "type": "string"
+                                    }
+                                  }
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "assignee": {
+                              "anyOf": [
+                                {
+                                  "additionalProperties": false,
+                                  "type": "object",
+                                  "required": [
+                                    "id",
+                                    "setId",
+                                    "evaluationId",
+                                    "disposition",
+                                    "reason",
+                                    "actorUserId",
+                                    "decidedAt",
+                                    "actionCorrelationId",
+                                    "field",
+                                    "value"
+                                  ],
+                                  "properties": {
+                                    "id": {
+                                      "format": "uuid",
+                                      "type": "string"
+                                    },
+                                    "setId": {
+                                      "format": "uuid",
+                                      "type": "string"
+                                    },
+                                    "evaluationId": {
+                                      "format": "uuid",
+                                      "type": "string"
+                                    },
+                                    "disposition": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "enum": [
+                                            "confirmed"
+                                          ]
+                                        },
+                                        {
+                                          "type": "string",
+                                          "enum": [
+                                            "corrected"
+                                          ]
+                                        },
+                                        {
+                                          "type": "string",
+                                          "enum": [
+                                            "manual"
+                                          ]
+                                        }
+                                      ]
+                                    },
+                                    "reason": {
+                                      "anyOf": [
+                                        {
+                                          "minLength": 1,
+                                          "pattern": "\\S",
+                                          "type": "string"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "actorUserId": {
+                                      "format": "uuid",
+                                      "type": "string"
+                                    },
+                                    "decidedAt": {
+                                      "format": "date-time",
+                                      "type": "string"
+                                    },
+                                    "actionCorrelationId": {
+                                      "description": "Server-generated identifier for support correlation.",
+                                      "type": "string"
+                                    },
+                                    "field": {
+                                      "type": "string",
+                                      "enum": [
+                                        "assignee"
+                                      ]
+                                    },
+                                    "value": {
+                                      "format": "uuid",
+                                      "type": "string"
+                                    }
+                                  }
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            }
+                          }
+                        },
+                        "complete": {
+                          "type": "boolean"
+                        }
+                      }
+                    },
+                    "actionCorrelationId": {
+                      "description": "Server-generated identifier for support correlation.",
+                      "type": "string"
+                    },
+                    "correlationId": {
+                      "description": "Server-generated identifier for support correlation.",
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "headers": {
+              "X-Correlation-Id": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation for this HTTP request; replays receive a new value."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "code",
+                    "message",
+                    "correlationId",
+                    "fields"
+                  ],
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "validation-failed"
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "correlationId": {
+                      "description": "Server-generated identifier for support correlation.",
+                      "type": "string"
+                    },
+                    "fields": {
+                      "type": "array",
+                      "items": {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "name",
+                          "code"
+                        ],
+                        "properties": {
+                          "name": {
+                            "type": "string"
+                          },
+                          "code": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "headers": {
+              "X-Correlation-Id": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation for this HTTP request; replays receive a new value."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "code",
+                    "message",
+                    "correlationId"
+                  ],
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "authentication-required"
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "correlationId": {
+                      "description": "Server-generated identifier for support correlation.",
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "headers": {
+              "X-Correlation-Id": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation for this HTTP request; replays receive a new value."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "code",
+                    "message",
+                    "correlationId"
+                  ],
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "forbidden"
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "correlationId": {
+                      "description": "Server-generated identifier for support correlation.",
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "headers": {
+              "X-Correlation-Id": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation for this HTTP request; replays receive a new value."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "code",
+                    "message",
+                    "correlationId"
+                  ],
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "not-found"
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "correlationId": {
+                      "description": "Server-generated identifier for support correlation.",
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Default Response",
+            "headers": {
+              "X-Correlation-Id": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation for this HTTP request; replays receive a new value."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "message",
+                        "correlationId"
+                      ],
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "idempotency-conflict"
+                          ]
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "correlationId": {
+                          "description": "Server-generated identifier for support correlation.",
+                          "type": "string"
+                        }
+                      }
+                    },
+                    {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "message",
+                        "correlationId",
+                        "currentVersion",
+                        "retrievalUri"
+                      ],
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "stale-version"
+                          ]
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "correlationId": {
+                          "description": "Server-generated identifier for support correlation.",
+                          "type": "string"
+                        },
+                        "currentVersion": {
+                          "minimum": 1,
+                          "type": "integer"
+                        },
+                        "retrievalUri": {
+                          "pattern": "^/api/v1/incidents/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/triage$",
+                          "type": "string"
+                        }
+                      }
+                    },
+                    {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "message",
+                        "correlationId",
+                        "currentState"
+                      ],
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "invalid-transition"
+                          ]
+                        },
+                        "message": {
+                          "type": "string",
+                          "enum": [
+                            "Incident must be open for triage"
+                          ]
+                        },
+                        "correlationId": {
+                          "description": "Server-generated identifier for support correlation.",
+                          "type": "string"
+                        },
+                        "currentState": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": [
+                                "classified"
+                              ]
+                            },
+                            {
+                              "type": "string",
+                              "enum": [
+                                "in-progress"
+                              ]
+                            },
+                            {
+                              "type": "string",
+                              "enum": [
+                                "blocked"
+                              ]
+                            },
+                            {
+                              "type": "string",
+                              "enum": [
+                                "resolved"
+                              ]
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "headers": {
+              "X-Correlation-Id": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation for this HTTP request; replays receive a new value."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "code",
+                    "message",
+                    "correlationId"
+                  ],
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "temporarily-unavailable"
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "correlationId": {
+                      "description": "Server-generated identifier for support correlation.",
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
