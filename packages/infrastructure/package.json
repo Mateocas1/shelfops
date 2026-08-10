@@ -42,6 +42,10 @@
     "./reference-data/postgres-configuration-repository": {
       "types": "./dist/reference-data/postgres-configuration-repository.d.ts",
       "default": "./dist/reference-data/postgres-configuration-repository.js"
+    },
+    "./triage/postgres-triage-authority-source": {
+      "types": "./dist/triage/postgres-triage-authority-source.d.ts",
+      "default": "./dist/triage/postgres-triage-authority-source.js"
     }
   },
   "dependencies": {
