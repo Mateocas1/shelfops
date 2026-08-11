@@ -13,6 +13,7 @@
     "@shelfops/contracts": "workspace:*",
     "@shelfops/infrastructure": "workspace:*",
     "fastify": "^5.5.0",
+    "openid-client": "6.8.4",
     "pg": "^8.22.0"
   }
 }
