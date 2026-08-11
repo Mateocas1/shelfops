@@ -66,6 +66,7 @@ Set `CURSOR_SECRET` to secret material containing at least 32 UTF-8 bytes before
 Rotating `CURSOR_SECRET` invalidates outstanding cursors. Deploy rotation as an intentional pagination reset; clients must restart affected list traversal without the old cursor.
 
 Production database changes use the fail-closed commands documented in [Run PostgreSQL migrations](operations/migrations.md).
+Build, inspect, run, and roll back the production artifact with [Run the production API container](operations/container.md).
 
 Start the API in one terminal:
 
