@@ -1,7 +1,8 @@
 import { readFile } from "node:fs/promises";
 import { PostgreSqlContainer } from "@testcontainers/postgresql";
-import { Client } from "pg";
+import type { Client } from "pg";
 import { describe, expect, it } from "vitest";
+import { connectReadyPostgres } from "./postgres-test-readiness.js";
 
 const image = "postgres:16.10-alpine@sha256:029660641a0cfc575b14f336ba448fb8a75fd595d42e1fa316b9fb4378742297";
 const id = (value: number) => `00000000-0000-7000-8000-${String(value).padStart(12, "0")}`;
@@ -12,7 +13,7 @@ describe("recurrence authority schema", () => {
   it("backfills rule provenance and derives immutable suggestion state without using generic events", async () => {
     let container: Awaited<ReturnType<PostgreSqlContainer["start"]>> | undefined; let client: Client | undefined;
     try {
-      container = await new PostgreSqlContainer(image).withDatabase("recurrence_authority").start(); client = new Client({ connectionString: container.getConnectionUri() }); await client.connect();
+      container = await new PostgreSqlContainer(image).withDatabase("recurrence_authority").start(); client = await connectReadyPostgres(container.getConnectionUri());
       for (const migration of ["001_reference-data.sql", "005_incidents-core.sql", "006_team-assignments.sql", "007_incident-creation.sql", "008_sla-policy-and-cycles.sql", "009_sla-policy-configuration.sql"]) await client.query(await readFile(`migrations/${migration}`, "utf8"));
       await client.query("INSERT INTO stores(id,organization_id,name) VALUES($1,$2,'A')", [ids.store, ids.organization]); await client.query("INSERT INTO sectors(id,organization_id,store_id,name) VALUES($1,$2,$3,'S')", [ids.sector, ids.organization, ids.store]); await client.query("INSERT INTO locations(id,organization_id,store_id,sector_id,name) VALUES($1,$2,$3,$4,'L')", [ids.location, ids.organization, ids.store, ids.sector]); await client.query("INSERT INTO products(id,organization_id,name) VALUES($1,$2,'P')", [ids.product, ids.organization]); await client.query("INSERT INTO users(id,organization_id,name) VALUES($1,$2,'Reporter'),($3,$2,'Actor')", [ids.reporter, ids.organization, ids.actor]); await insertIncident(client, ids.candidate, "Earlier"); await insertIncident(client, ids.incident, "Current");
       await client.query(await readFile("migrations/010_recurrence-authority.sql", "utf8")); await insertIncident(client, ids.laterIncident, "Later");
