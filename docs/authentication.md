@@ -2,6 +2,30 @@
 
 ShelfOps uses an OIDC Authorization Code BFF boundary: the browser keeps no provider access token. After a successful callback, the API owns an opaque session identifier and sends it only as an `HttpOnly`, `Secure`, `SameSite=Lax` `shelfops_session` cookie.
 
+## Production configuration
+
+Configure all variables below or none. A partial bundle aborts startup before listening.
+
+| Variable | Constraint |
+| --- | --- |
+| `SHELFOPS_OIDC_ISSUER` | Fixed HTTPS issuer URL |
+| `SHELFOPS_OIDC_CLIENT_ID` / `SHELFOPS_OIDC_CLIENT_SECRET` | Nonblank provider credentials |
+| `SHELFOPS_OIDC_CALLBACK_URL` | Fixed HTTPS URL ending exactly in `/auth/callback` |
+| `SHELFOPS_OIDC_DESTINATION_URL` | Fixed HTTPS post-login destination |
+| `SHELFOPS_OIDC_ORGANIZATION_ID` | Organization UUID that owns every accepted mapping and revocation |
+| `SHELFOPS_OIDC_SESSION_TTL_SECONDS` | 60–2,592,000 seconds |
+| `SHELFOPS_OIDC_PROVIDER_TIMEOUT_SECONDS` | 1–30 seconds |
+
+The unpublished browser surface is exactly `GET /auth/login`, `GET /auth/callback`, and CSRF-protected `POST /auth/logout`. Logout revokes the authenticated local session before expiring its cookies. Failure responses contain only stable messages and correlation IDs.
+
+## Runtime proof
+
+Run `pnpm oidc:proof`. It uses the pinned loopback issuer from `infra/compose.oidc.yml`, bounded HTTP waits, a fixed Compose project, and unconditional cleanup. The proof exercises login, callback, local session creation, callback replay rejection, and logout revocation. Loopback HTTP is test-only; production configuration still requires HTTPS.
+
+Deferred behavior remains absent: auto-provisioning, claim-derived authorization, provider logout, browser UI/E2E, rate limiting, production provider onboarding or secrets, and migration cleanup or constraint validation.
+
+To roll back this unit, remove runtime proof and logout registration, then remove startup OIDC composition and operator configuration guidance. Keep the login/callback foundation and migration from the earlier units. Full capability rollback proceeds in reverse unit order and requires no schema rollback for this unit.
+
 ## Login persistence foundation
 
 Migration 012 and `PostgresOidcLoginStore` provide provider-neutral persistence only. They hash authorization state, consume it once, resolve only an exact pre-provisioned `(issuer, subject)` mapping to an active organization user, create hash-only local session and CSRF credentials, and revoke a user session within its organization. Unknown, expired, and replayed state have the same safe result, and every operation participates in a caller-owned PostgreSQL transaction when needed.

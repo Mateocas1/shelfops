@@ -12,6 +12,7 @@ import { registerApiRoutes, type ApiRegistrationDependencies } from "./routes/re
 import type { Readiness } from "./routes/health.js";
 import { registerRequestLogging, safeCorrelationId, type ApiLogger } from "./logging.js";
 import type { Metrics } from "./metrics.js";
+import type { OidcRouteDependencies } from "./auth/oidc-routes.js";
 
 export interface BuildApiOptions {
   configurationExecutor: ConfigurationExecutor;
@@ -30,6 +31,7 @@ export interface BuildApiOptions {
   readiness?: Readiness;
   logger?: ApiLogger | false;
   metrics?: Metrics;
+  oidc?: OidcRouteDependencies;
 }
 
 export async function buildApi(options: BuildApiOptions): Promise<FastifyInstance> {
@@ -53,6 +55,7 @@ export async function buildApi(options: BuildApiOptions): Promise<FastifyInstanc
       triageAuthorityExecutor: options.triageAuthorityExecutor,
       slaPolicyExecutor: options.slaPolicyExecutor,
       recurrenceDecisionExecutor: options.recurrenceDecisionExecutor,
+      oidc: options.oidc,
       cursorSecret: options.cursorSecret ?? "development-only-cursor-secret",
       readiness: options.readiness ?? { isDraining: () => false, probe: async () => { throw new Error("Readiness dependency is not configured"); } }
     });

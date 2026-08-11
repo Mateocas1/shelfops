@@ -53,4 +53,13 @@ describe("PostgreSQL OIDC login store", () => {
     await expect(store.revoke({ sessionId: success.sessionId, userId, organizationId })).resolves.toEqual({ kind: "revoked" }); await expect(store.revoke({ sessionId: success.sessionId, userId, organizationId })).resolves.toEqual({ kind: "not-found" });
     await expect(store.revoke({ sessionId: success.sessionId, userId: "00000000-0000-7000-8000-000000000071", organizationId })).resolves.toEqual({ kind: "not-found" });
   });
+
+  it("scopes revocation to the configured organization authority", async () => {
+    const created = await store.createSession({ userId, organizationId, expiresAt: new Date(Date.now() + 60_000) });
+    if (created.kind !== "created") throw new Error("missing session");
+    const revoker = store.scopedRevoker(organizationId);
+    await expect(revoker.revoke(created.sessionId, userId)).resolves.toEqual({ kind: "revoked" });
+    await expect(revoker.revoke(created.sessionId, userId)).resolves.toEqual({ kind: "not-found" });
+    await expect(store.scopedRevoker("00000000-0000-7000-8000-000000000002").revoke(created.sessionId, userId)).resolves.toEqual({ kind: "not-found" });
+  });
 });

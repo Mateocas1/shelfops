@@ -13,6 +13,7 @@
     "migrate": "tsx scripts/migrate.ts",
     "migrate:status": "tsx scripts/migrate.ts status",
     "smoke:production": "tsx scripts/smoke-production.ts",
+    "oidc:proof": "tsx scripts/prove-oidc-runtime.ts",
     "build:producers": "pnpm --filter @shelfops/domain build && pnpm --filter @shelfops/application build && pnpm --filter @shelfops/contracts build && pnpm --filter @shelfops/infrastructure build",
     "test:contract": "pnpm run build:producers && vitest run --config vitest.contract.config.ts",
     "test:all": "pnpm typecheck && pnpm test && pnpm test:integration && pnpm test:contract && pnpm build",

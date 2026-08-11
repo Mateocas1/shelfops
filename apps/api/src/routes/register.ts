@@ -8,6 +8,7 @@ import type { PostgresTriageAuthorityExecutor } from "@shelfops/infrastructure/t
 import type { FastifyInstance } from "fastify";
 
 import { registerSessionBoundary } from "../auth/session-boundary.js";
+import { registerOidcRoutes, type OidcRouteDependencies } from "../auth/oidc-routes.js";
 import { registerHealthRoute } from "./health.js";
 import type { Readiness } from "./health.js";
 import { registerIncidentReadRoutes } from "./incidents-read.js";
@@ -30,6 +31,7 @@ export interface ApiRegistrationDependencies {
   recurrenceDecisionExecutor?: RecurrenceDecisionExecutor;
   cursorSecret: string;
   readiness: Readiness;
+  oidc?: OidcRouteDependencies;
 }
 
 export async function registerPublishedRoutes(app: FastifyInstance, dependencies: ApiRegistrationDependencies): Promise<void> {
@@ -50,5 +52,6 @@ export async function registerPublishedRoutes(app: FastifyInstance, dependencies
 export async function registerApiRoutes(app: FastifyInstance, dependencies: ApiRegistrationDependencies): Promise<void> {
   await registerHealthRoute(app, dependencies.readiness);
   await registerSessionBoundary(app, { identityProvider: dependencies.identityProvider });
+  if (dependencies.oidc) await registerOidcRoutes(app, dependencies.oidc);
   await registerPublishedRoutes(app, dependencies);
 }

@@ -41,4 +41,7 @@ export class PostgresOidcLoginStore {
     if (!validText(input.sessionId, 1024)) throw new OidcLoginStoreError();
     try { const result = await this.database.query("UPDATE sessions s SET revoked_at=now() FROM users u WHERE s.user_id=u.id AND s.session_id_hash=$1 AND s.user_id=$2 AND u.organization_id=$3 AND s.revoked_at IS NULL RETURNING 1", [digest(input.sessionId), input.userId, input.organizationId]); return { kind: result.rowCount === 1 ? "revoked" : "not-found" }; } catch { throw new OidcLoginStoreError("persistence-failure"); }
   }
+  scopedRevoker(organizationId: string): Readonly<{ revoke(sessionId: string, userId: string): Promise<RevokeResult> }> {
+    return { revoke: (sessionId, userId) => this.revoke({ sessionId, userId, organizationId }) };
+  }
 }

@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { Pool } from "pg";
 import { PostgresIdentityProvider } from "@shelfops/infrastructure/identity/postgres-identity-provider";
+import { PostgresOidcLoginStore } from "@shelfops/infrastructure/identity/postgres-oidc-login-store";
 import { PostgresAuthorizedIncidentRepository } from "@shelfops/infrastructure/repositories/authorized-incident-repository";
 import { PostgresIncidentCreationExecutor } from "@shelfops/infrastructure/incidents/postgres-incident-creation-executor";
 import { PostgresTriageAuthorityExecutor } from "@shelfops/infrastructure/triage/postgres-triage-authority-executor";
@@ -14,6 +15,8 @@ import { buildApi, type BuildApiOptions } from "./app.js";
 import { createLifecycle, type Lifecycle } from "./lifecycle.js";
 import { createApiLogger, validateLogLevel, type ApiLogger } from "./logging.js";
 import { createMetrics, validateMetricsCredential, type PoolDiagnostics } from "./metrics.js";
+import { readOidcConfig } from "./auth/oidc-config.js";
+import { createOidcProtocol, type OidcProtocol } from "./auth/oidc-client.js";
 
 const TCP_PORT_PATTERN = /^\d+$/;
 const INVALID_PORT_MESSAGE = "PORT must be a TCP port between 1 and 65535";
@@ -39,6 +42,9 @@ export interface StartupOptions {
   logLevel?: string;
   metricsCredential?: string;
   metricsDiagnostics?: () => PoolDiagnostics;
+  oidcEnvironment?: Readonly<Record<string, string | undefined>>;
+  allowOidcLoopbackHttp?: boolean;
+  createOidcProtocol?: typeof createOidcProtocol;
 }
 
 interface ApiPool {
@@ -92,6 +98,7 @@ export async function startApi(options: StartupOptions = {}): Promise<FastifyIns
     validateLogLevel(options.logLevel ?? process.env.LOG_LEVEL);
     if (options.logger !== false) logger ??= createApiLogger({ environment: process.env.NODE_ENV ?? "production", release: process.env.RELEASE ?? process.env.npm_package_version ?? "unknown", level: options.logLevel ?? process.env.LOG_LEVEL });
     const cursorSecret = requireCursorSecret(options.cursorSecret ?? process.env.CURSOR_SECRET);
+    const oidcConfig = readOidcConfig(options.oidcEnvironment ?? process.env, { allowLoopbackHttp: options.allowOidcLoopbackHttp });
     const metricsCredential = validateMetricsCredential(options.metricsCredential ?? process.env.METRICS_BEARER_TOKEN ?? (process.env.NODE_ENV === "test" ? TEST_METRICS_CREDENTIAL : undefined));
     let configurationExecutor = options.configurationExecutor;
     let identityProvider = options.identityProvider;
@@ -104,6 +111,8 @@ export async function startApi(options: StartupOptions = {}): Promise<FastifyIns
     const lifecycle = options.lifecycle ?? createLifecycle();
     let dependencyProbe = options.dependencyProbe;
     let metricsDiagnostics = options.metricsDiagnostics;
+    let oidc: BuildApiOptions["oidc"];
+    let oidcProtocol: OidcProtocol | undefined;
 
     if (!configurationExecutor) {
       const connectionString = process.env.DATABASE_URL?.trim();
@@ -123,6 +132,13 @@ export async function startApi(options: StartupOptions = {}): Promise<FastifyIns
       triageAuthorityExecutor ??= new PostgresTriageAuthorityExecutor(pool);
       slaPolicyExecutor ??= new PostgresSlaPolicyExecutor(pool);
       recurrenceDecisionExecutor ??= new PostgresRecurrenceAuthorityExecutor(pool);
+      if (oidcConfig) {
+        const store = new PostgresOidcLoginStore(pool as Pool);
+        oidcProtocol = await (options.createOidcProtocol ?? createOidcProtocol)(oidcConfig);
+        const closePool = closeOwnedResource;
+        closeOwnedResource = closeOnce({ end: async () => { await oidcProtocol?.close(); await closePool?.(); } } as ApiPool);
+        oidc = { config: oidcConfig, protocol: oidcProtocol, persistence: store, identityProvider, revoke: store.scopedRevoker(oidcConfig.organizationId).revoke };
+      }
     } else if (!identityProvider) {
       throw new Error("A production identity provider is required with an external configuration executor");
     }
@@ -134,7 +150,7 @@ export async function startApi(options: StartupOptions = {}): Promise<FastifyIns
 
     const readiness = { ...lifecycle, probe: dependencyProbe };
     const metrics = createMetrics({ credential: metricsCredential, environment: process.env.NODE_ENV ?? "production", release: process.env.RELEASE ?? process.env.npm_package_version ?? "unknown", readiness, pool: metricsDiagnostics });
-    app = await (options.buildApi ?? buildApi)({ configurationExecutor, identityProvider, incidentRepository, incidentCreationExecutor, triageAuthoritySource, triageAuthorityExecutor, slaPolicyExecutor, recurrenceDecisionExecutor, cursorSecret, environment: "production", closeOwnedResource, logError, logger, readiness, metrics });
+    app = await (options.buildApi ?? buildApi)({ configurationExecutor, identityProvider, incidentRepository, incidentCreationExecutor, triageAuthoritySource, triageAuthorityExecutor, slaPolicyExecutor, recurrenceDecisionExecutor, oidc, cursorSecret, environment: "production", closeOwnedResource, logError, logger, readiness, metrics });
     await app.listen({
       host: options.host ?? process.env.HOST ?? "127.0.0.1",
       port: parsePort(options.port ?? process.env.PORT)
