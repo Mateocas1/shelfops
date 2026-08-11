@@ -11,6 +11,10 @@
       "types": "./dist/identity/postgres-identity-provider.d.ts",
       "default": "./dist/identity/postgres-identity-provider.js"
     },
+    "./identity/postgres-oidc-login-store": {
+      "types": "./dist/identity/postgres-oidc-login-store.d.ts",
+      "default": "./dist/identity/postgres-oidc-login-store.js"
+    },
     "./idempotency/postgres-idempotency-store": {
       "types": "./dist/idempotency/postgres-idempotency-store.d.ts",
       "default": "./dist/idempotency/postgres-idempotency-store.js"
