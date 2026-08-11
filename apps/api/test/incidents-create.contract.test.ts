@@ -95,6 +95,13 @@ describe("incident creation API", () => {
     expect(replayBody.correlationId).not.toBe(firstBody.correlationId); expect(replay.headers["x-correlation-id"]).toBe(replayBody.correlationId);
   });
 
+  it("returns the exact temporary failure contract when triage authority is unavailable", async () => {
+    const { app, sessionId } = await appFor({ execute: vi.fn(async () => { throw new Error("triage-unavailable"); }) });
+    const response = await app.inject(request(sessionId));
+    expect(response.statusCode).toBe(503);
+    expect(response.json()).toEqual({ code: "temporarily-unavailable", message: "Service is temporarily unavailable", correlationId: response.headers["x-correlation-id"] });
+  });
+
   it("publishes the exact POST schema and response set", async () => {
     const document = await openApiDocument() as Record<string, any>; const path = document.paths["/api/v1/incidents"]; const responses = path.post.responses;
     expect(Object.keys(path)).toEqual(["get", "post"]); expect(path.post.security).toEqual([{ sessionCookie: [] }]);

@@ -9,7 +9,7 @@ const image = "postgres:16.10-alpine@sha256:029660641a0cfc575b14f336ba448fb8a75f
 const id = (value: number) => `00000000-0000-7000-8000-${String(value).padStart(12, "0")}`;
 const ids = { organization: id(1), store: id(10), sector: id(11), location: id(12), actor: id(13), assignee: id(14), policy: id(50), warning: id(100), unchanged: id(101), partial: id(102), breached: id(103), rollback: id(104) };
 const migrations = ["001_reference-data.sql", "002_identity-sessions.sql", "003_configuration-events.sql", "004_reference-configuration-idempotency.sql", "005_incidents-core.sql", "006_team-assignments.sql", "007_incident-creation.sql", "008_sla-policy-and-cycles.sql", "009_sla-policy-configuration.sql", "010_recurrence-authority.sql", "011_triage.sql"];
-const principal: AuthorizedPrincipal = { id: ids.actor, active: true, roleScopes: [{ role: "supervisor", storeIds: [ids.store], sectorIds: [], categoryResponsibilities: [], teamIds: [] }], grants: [] };
+const principal: AuthorizedPrincipal = { id: ids.actor, active: true, roleScopes: [{ role: "central-operations", storeIds: [ids.store], sectorIds: [], categoryResponsibilities: ["out-of-stock"], teamIds: [] }], grants: [{ action: "triage", role: "central-operations" }] };
 
 type Decision = Readonly<{ field: "category" | "severity" | "assignee"; disposition: "confirmed" | "corrected" | "manual"; value: string; reason?: string }>;
 type DecisionInput = Readonly<{ incidentId: string; evaluationId: string; expectedVersion: number; idempotencyKey: string; correlationId: string; complete: boolean; decisions: readonly Decision[] }>;
@@ -43,6 +43,10 @@ describe("PostgreSQL triage SLA recalculation", () => {
       await pool.query("INSERT INTO sectors(id,organization_id,store_id,name) VALUES($1,$2,$3,'Sector')", [ids.sector, ids.organization, ids.store]);
       await pool.query("INSERT INTO locations(id,organization_id,store_id,sector_id,name) VALUES($1,$2,$3,$4,'Location')", [ids.location, ids.organization, ids.store, ids.sector]);
       await pool.query("INSERT INTO users(id,organization_id,name) VALUES($1,$3,'Actor'),($2,$3,'Assignee')", [ids.actor, ids.assignee, ids.organization]);
+      await pool.query("INSERT INTO user_roles(user_id,role) VALUES($1,'central-operations')", [ids.actor]);
+      await pool.query("INSERT INTO user_store_scopes(user_id,store_id) VALUES($1,$2)", [ids.actor, ids.store]);
+      await pool.query("INSERT INTO category_responsibilities(user_id,category_key) VALUES($1,'out-of-stock')", [ids.actor]);
+      await pool.query("INSERT INTO action_grants(user_id,action,role) VALUES($1,'triage','central-operations')", [ids.actor]);
       await pool.query("INSERT INTO user_roles(user_id,role) VALUES($1,'sector-lead')", [ids.assignee]);
       await pool.query("INSERT INTO user_store_scopes(user_id,store_id) VALUES($1,$2)", [ids.assignee, ids.store]);
       await pool.query("INSERT INTO user_sector_scopes(user_id,sector_id) VALUES($1,$2)", [ids.assignee, ids.sector]);
@@ -51,7 +55,7 @@ describe("PostgreSQL triage SLA recalculation", () => {
       const seeded = await seedCycle(pool, ids.warning, 101, 90);
       const executor = await authority(pool);
       const evaluation = await executor.execute(principal, { incidentId: ids.warning, expectedVersion: 1, idempotencyKey: "evaluate-warning", correlationId: "evaluation" }) as { evaluation: { id: string } };
-      await executor.decide(principal, { incidentId: ids.warning, evaluationId: evaluation.evaluation.id, expectedVersion: 2, idempotencyKey: "decide-warning", correlationId: "decision", complete: true, decisions: [{ field: "category", disposition: "confirmed", value: "out-of-stock" }, { field: "severity", disposition: "corrected", value: "high", reason: "Urgency increased" }, { field: "assignee", disposition: "confirmed", value: ids.assignee }] });
+      await executor.decide(principal, { incidentId: ids.warning, evaluationId: evaluation.evaluation.id, expectedVersion: 2, idempotencyKey: "decide-warning", correlationId: "decision", complete: true, decisions: [{ field: "category", disposition: "confirmed", value: "out-of-stock" }, { field: "severity", disposition: "corrected", value: "high", reason: "Urgency increased" }, { field: "assignee", disposition: "manual", value: ids.assignee, reason: "Selected eligible assignee" }] });
 
       const segments = await pool.query<{ id: string; sequence: number; active: boolean; ended_at: Date | null; started_at: Date; snapshot_id: string; policy_version: number; category_key: string; severity_key: string; warning_at: Date; deadline_at: Date }>("SELECT segment.id,segment.sequence,segment.active,segment.ended_at,segment.started_at,segment.snapshot_id,snapshot.policy_version,snapshot.category_key,snapshot.severity_key,segment.warning_at,segment.deadline_at FROM incident_sla_segments segment JOIN incident_sla_rule_snapshots snapshot ON snapshot.id=segment.snapshot_id WHERE segment.incident_id=$1 ORDER BY segment.sequence", [ids.warning]);
       const decidedAt = (await pool.query<{ decided_at: Date }>("SELECT decided_at FROM triage_decision_sets WHERE incident_id=$1", [ids.warning])).rows[0]!.decided_at;
@@ -68,10 +72,10 @@ describe("PostgreSQL triage SLA recalculation", () => {
 
       const eventTypes = async (incidentId: string) => (await pool.query<{ event_type: string }>("SELECT event_type FROM incident_events WHERE incident_id=$1 ORDER BY sequence", [incidentId])).rows.map((row) => row.event_type);
       const evaluate = async (incidentId: string) => ((await executor.execute(principal, { incidentId, expectedVersion: 1, idempotencyKey: `evaluate-${incidentId}`, correlationId: "evaluation" })) as { evaluation: { id: string } }).evaluation.id;
-      const complete = (incidentId: string, evaluationId: string, severity: "high" | "critical", key: string): DecisionInput => ({ incidentId, evaluationId, expectedVersion: 2, idempotencyKey: key, correlationId: key, complete: true, decisions: [{ field: "category", disposition: "confirmed", value: "out-of-stock" }, { field: "severity", disposition: "corrected", value: severity, reason: "Urgency changed" }, { field: "assignee", disposition: "confirmed", value: ids.assignee }] });
+      const complete = (incidentId: string, evaluationId: string, severity: "high" | "critical", key: string): DecisionInput => ({ incidentId, evaluationId, expectedVersion: 2, idempotencyKey: key, correlationId: key, complete: true, decisions: [{ field: "category", disposition: "confirmed", value: "out-of-stock" }, { field: "severity", disposition: "corrected", value: severity, reason: "Urgency changed" }, { field: "assignee", disposition: "manual", value: ids.assignee, reason: "Selected eligible assignee" }] });
       const unchanged = await seedCycle(pool, ids.unchanged, 111, 90);
       const unchangedEvaluation = await evaluate(ids.unchanged);
-      await executor.decide(principal, { incidentId: ids.unchanged, evaluationId: unchangedEvaluation, expectedVersion: 2, idempotencyKey: "unchanged", correlationId: "unchanged", complete: true, decisions: [{ field: "category", disposition: "confirmed", value: "out-of-stock" }, { field: "severity", disposition: "confirmed", value: "low" }, { field: "assignee", disposition: "confirmed", value: ids.assignee }] });
+      await executor.decide(principal, { incidentId: ids.unchanged, evaluationId: unchangedEvaluation, expectedVersion: 2, idempotencyKey: "unchanged", correlationId: "unchanged", complete: true, decisions: [{ field: "category", disposition: "confirmed", value: "out-of-stock" }, { field: "severity", disposition: "confirmed", value: "low" }, { field: "assignee", disposition: "manual", value: ids.assignee, reason: "Selected eligible assignee" }] });
       await expect(pool.query("SELECT count(*)::int count FROM incident_sla_segments WHERE incident_id=$1", [ids.unchanged])).resolves.toMatchObject({ rows: [{ count: 1 }] });
       await expect(pool.query("SELECT snapshot_id,condition FROM incident_sla_cycles WHERE id=$1", [unchanged.cycleId])).resolves.toMatchObject({ rows: [{ snapshot_id: unchanged.snapshotId, condition: "on-track" }] });
       expect(await eventTypes(ids.unchanged)).toEqual(["triage-evaluated", "triage-decided", "incident-classified"]);

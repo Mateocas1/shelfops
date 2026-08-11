@@ -22,7 +22,7 @@ describe("PostgreSQL SLA policy configuration", () => {
   it("persists only future complete versions and preserves existing SLA history on every rejected path", async () => {
     const container = await new PostgreSqlContainer(image).withDatabase("sla_policy_configuration").start(); const pool = new Pool({ connectionString: container.getConnectionUri() });
     try {
-      for (const migration of ["001_reference-data.sql", "005_incidents-core.sql", "006_team-assignments.sql", "007_incident-creation.sql", "008_sla-policy-and-cycles.sql", "009_sla-policy-configuration.sql"]) await pool.query(await readFile(`migrations/${migration}`, "utf8"));
+      for (const migration of ["001_reference-data.sql", "002_identity-sessions.sql", "003_configuration-events.sql", "004_reference-configuration-idempotency.sql", "005_incidents-core.sql", "006_team-assignments.sql", "007_incident-creation.sql", "008_sla-policy-and-cycles.sql", "009_sla-policy-configuration.sql", "010_recurrence-authority.sql", "011_triage.sql"]) await pool.query(await readFile(`migrations/${migration}`, "utf8"));
       await pool.query("INSERT INTO stores(id,organization_id,name) VALUES($1,$2,'A')", [ids.store, ids.organization]);
       await pool.query("INSERT INTO sectors(id,organization_id,store_id,name) VALUES($1,$2,$3,'S')", [ids.sector, ids.organization, ids.store]);
       await pool.query("INSERT INTO locations(id,organization_id,store_id,sector_id,name) VALUES($1,$2,$3,$4,'L')", [ids.location, ids.organization, ids.store, ids.sector]);

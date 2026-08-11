@@ -65,6 +65,13 @@ describe("transactional incident creation", () => {
       await expect(executor.execute(principal, request({ idempotencyKey: "wrong-organization-policy" }))).rejects.toThrow("missing-sla-rule");
       await expect(pool.query("SELECT actor_user_id,text FROM incident_text_evidence WHERE incident_id=$1", [created.incidentId])).resolves.toMatchObject({ rows: [{ actor_user_id: ids.reporter, text: "Shelf checked" }] });
       expect(await effectCounts()).toEqual({ incidents: 2, evidence: 2, events: 4, outcomes: 2, snapshots: 2, cycles: 2, segments: 2, evaluations: 2 });
+      await pool.query("UPDATE sla_policy_versions SET active=true WHERE organization_id=$1", [ids.organization]);
+      await pool.query("DROP TABLE triage_decision_items,triage_decision_sets,triage_idempotency_outcomes,triage_evaluations,triage_rules,triage_rule_versions CASCADE");
+      const durableCounts = async () => (await pool.query("SELECT (SELECT count(*) FROM incidents)::int incidents,(SELECT count(*) FROM incident_text_evidence)::int evidence,(SELECT count(*) FROM incident_events)::int events,(SELECT count(*) FROM incident_creation_idempotency)::int outcomes,(SELECT count(*) FROM incident_sla_rule_snapshots)::int snapshots,(SELECT count(*) FROM incident_sla_cycles)::int cycles,(SELECT count(*) FROM incident_sla_segments)::int segments")).rows[0];
+      const beforeMissingAuthority = await durableCounts();
+      await expect(executor.execute(principal, request({ idempotencyKey: "missing-triage-authority" }))).rejects.toThrow("triage-unavailable");
+      expect(await durableCounts()).toEqual(beforeMissingAuthority);
+      await expect(pool.query("SELECT count(*)::int count FROM incident_creation_idempotency WHERE key='missing-triage-authority'")).resolves.toMatchObject({ rows: [{ count: 0 }] });
     } finally { await pool.end(); await container.stop(); }
   }, 120_000);
 });

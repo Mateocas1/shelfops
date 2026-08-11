@@ -66,6 +66,13 @@ async function candidatesFor(client: TransactionClient, organizationId: string, 
   return (await client.query<CandidateRow>(`SELECT u.id,u.active,COALESCE((SELECT array_agg(DISTINCT role ORDER BY role) FROM user_roles WHERE user_id=u.id),ARRAY[]::text[]) roles,COALESCE((SELECT array_agg(DISTINCT store_id::text ORDER BY store_id::text) FROM user_store_scopes WHERE user_id=u.id),ARRAY[]::text[]) store_ids,COALESCE((SELECT array_agg(DISTINCT sector_id::text ORDER BY sector_id::text) FROM user_sector_scopes WHERE user_id=u.id),ARRAY[]::text[]) sector_ids,COALESCE((SELECT array_agg(DISTINCT category_key ORDER BY category_key) FROM category_responsibilities WHERE user_id=u.id),ARRAY[]::text[]) category_responsibilities,COALESCE((SELECT array_agg(DISTINCT membership.team_id::text ORDER BY membership.team_id::text) FROM team_memberships membership JOIN teams team ON team.id=membership.team_id AND team.organization_id=membership.organization_id WHERE membership.user_id=u.id AND membership.organization_id=u.organization_id AND membership.active AND team.active),ARRAY[]::text[]) team_ids FROM users u WHERE u.organization_id=$1${filter} ORDER BY u.id`, values)).rows;
 }
 
+async function authoritativePrincipal(client: TransactionClient, organizationId: string, userId: string): Promise<AuthorizedPrincipal | null> {
+  const actor = (await candidatesFor(client, organizationId, userId))[0];
+  if (!actor) return null;
+  const grants = (await client.query<{ action: AuthorizedPrincipal["grants"][number]["action"]; role: AuthorizedPrincipal["grants"][number]["role"] | null }>("SELECT action,NULLIF(role,'') role FROM action_grants WHERE user_id=$1 ORDER BY action,role", [userId])).rows;
+  return { id: actor.id, active: actor.active, roleScopes: scopesFor(actor), grants: grants.map((grant) => ({ action: grant.action, ...(grant.role ? { role: grant.role } : {}) })) };
+}
+
 export class PostgresTriageAuthorityExecutor {
   constructor(private readonly pool: TriageAuthorityTransactionPool, private readonly id = () => v7()) {}
 
@@ -80,8 +87,8 @@ export class PostgresTriageAuthorityExecutor {
       if (!incident || visibilityDecision(principal.id, principal.active, principal.roleScopes, recordFor(incident)).outcome !== "visible") throw new TriageNotFoundError();
       if (actionDecision(principal.id, principal.active, principal.roleScopes, principal.grants, recordFor(incident), "triage").outcome !== "allowed") throw new TriageForbiddenError();
       await client.query("SELECT pg_advisory_xact_lock($1::bigint)", [lockKey(principal.id, input.incidentId, input.idempotencyKey)]);
-      const currentActor = (await client.query<{ active: boolean }>("SELECT active FROM users WHERE id=$1 AND organization_id=$2", [principal.id, actor.organization_id])).rows[0];
-      if (!currentActor?.active || visibilityDecision(principal.id, principal.active, principal.roleScopes, recordFor(incident)).outcome !== "visible" || actionDecision(principal.id, principal.active, principal.roleScopes, principal.grants, recordFor(incident), "triage").outcome !== "allowed") throw new TriageForbiddenError();
+      const currentPrincipal = await authoritativePrincipal(client, actor.organization_id, principal.id);
+      if (!currentPrincipal?.active || visibilityDecision(currentPrincipal.id, currentPrincipal.active, currentPrincipal.roleScopes, recordFor(incident)).outcome !== "visible" || actionDecision(currentPrincipal.id, currentPrincipal.active, currentPrincipal.roleScopes, currentPrincipal.grants, recordFor(incident), "triage").outcome !== "allowed") throw new TriageForbiddenError();
       const requestHash = digest([input.incidentId.trim(), input.expectedVersion]);
       const previous = (await client.query<{ request_hash: string; outcome: TriageEvaluationReceipt }>("SELECT request_hash,outcome FROM triage_idempotency_outcomes WHERE organization_id=$1 AND principal_id=$2 AND api_major='v1' AND action='triage-evaluate' AND incident_id=$3 AND key=$4", [actor.organization_id, principal.id, incident.id, input.idempotencyKey])).rows[0];
       if (previous) {
@@ -123,17 +130,17 @@ export class PostgresTriageAuthorityExecutor {
       if (!incident || visibilityDecision(principal.id, principal.active, principal.roleScopes, recordFor(incident)).outcome !== "visible") throw new TriageNotFoundError();
       if (actionDecision(principal.id, principal.active, principal.roleScopes, principal.grants, recordFor(incident), "triage").outcome !== "allowed") throw new TriageForbiddenError();
       await client.query("SELECT pg_advisory_xact_lock($1::bigint)", [decisionLockKey(principal.id, command.incidentId, command.idempotencyKey)]);
-      const currentActor = (await client.query<{ active: boolean }>("SELECT active FROM users WHERE id=$1 AND organization_id=$2", [principal.id, actor.organization_id])).rows[0];
+      const currentPrincipal = await authoritativePrincipal(client, actor.organization_id, principal.id);
       incident = (await client.query<IncidentRow>("SELECT id,organization_id,store_id,sector_id,location_id,product_id,category_key,severity_key,reporter_user_id,assignee_user_id,assignee_team_id,state,version FROM incidents WHERE id=$1 AND organization_id=$2 FOR UPDATE", [command.incidentId, actor.organization_id])).rows[0]!;
-      if (!currentActor?.active || !incident || visibilityDecision(principal.id, principal.active, principal.roleScopes, recordFor(incident)).outcome !== "visible" || actionDecision(principal.id, principal.active, principal.roleScopes, principal.grants, recordFor(incident), "triage").outcome !== "allowed") throw new TriageForbiddenError();
+      if (!currentPrincipal?.active || !incident || visibilityDecision(currentPrincipal.id, currentPrincipal.active, currentPrincipal.roleScopes, recordFor(incident)).outcome !== "visible" || actionDecision(currentPrincipal.id, currentPrincipal.active, currentPrincipal.roleScopes, currentPrincipal.grants, recordFor(incident), "triage").outcome !== "allowed") throw new TriageForbiddenError();
       const requestHash = digest([command.incidentId, command.evaluationId, command.expectedVersion, command.complete, [...command.decisions].sort((left, right) => left.field.localeCompare(right.field))]);
       const previous = (await client.query<{ request_hash: string; outcome: TriageDecisionReceipt }>("SELECT request_hash,outcome FROM triage_idempotency_outcomes WHERE organization_id=$1 AND principal_id=$2 AND api_major='v1' AND action='triage-decide' AND incident_id=$3 AND key=$4", [actor.organization_id, principal.id, incident.id, command.idempotencyKey])).rows[0];
       if (previous) {
         if (previous.request_hash !== requestHash) throw new TriageIdempotencyConflictError();
         outcome = previous.outcome;
       } else {
-        if (incident.state !== "open") throw new TriageInvalidTransitionError(incident.state);
         if (incident.version !== command.expectedVersion) throw new TriageStaleVersionError(incident.version);
+        if (incident.state !== "open") throw new TriageInvalidTransitionError(incident.state);
         const evaluation = (await client.query<DecisionEvaluationRow>("SELECT id,suggested FROM triage_evaluations WHERE id=$1 AND incident_id=$2 AND organization_id=$3", [command.evaluationId, incident.id, actor.organization_id])).rows[0];
         if (!evaluation) throw new TriageNotFoundError();
         for (const decision of command.decisions) {
@@ -147,7 +154,7 @@ export class PostgresTriageAuthorityExecutor {
         const effectiveComplete = command.complete && fields.every((field) => aggregate[field] !== null);
         if (effectiveComplete) {
           const finalRecord = { ...incident, category_key: aggregate.category!, assignee_user_id: aggregate.assignee! };
-          if (actionDecision(principal.id, principal.active, principal.roleScopes, principal.grants, recordFor(finalRecord), "triage").outcome !== "allowed") throw new TriageForbiddenError();
+          if (actionDecision(currentPrincipal.id, currentPrincipal.active, currentPrincipal.roleScopes, currentPrincipal.grants, recordFor(finalRecord), "triage").outcome !== "allowed") throw new TriageForbiddenError();
           const assignee = (await candidatesFor(client, actor.organization_id, aggregate.assignee!))[0];
           if (!assignee || assignmentEligibility(assignee.id, assignee.active, scopesFor(assignee), recordFor(finalRecord)).outcome !== "eligible") throw new TriageValidationError();
         }
