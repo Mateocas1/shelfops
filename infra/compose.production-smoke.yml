@@ -1,0 +1,55 @@
+services:
+  db:
+    image: postgres:16.10-bookworm@sha256:38471f330eb885e04de130b768d6db4e10469e2311879c7e5c699f6d2d8a1c74
+    environment:
+      POSTGRES_DB: shelfops_smoke
+      POSTGRES_USER: shelfops_smoke
+      POSTGRES_PASSWORD: ${SMOKE_DB_PASSWORD:?required}
+    ports:
+      - "127.0.0.1:${SMOKE_DB_PORT:?required}:5432"
+    volumes:
+      - shelfops-production-smoke-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U shelfops_smoke -d shelfops_smoke"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+    networks: [smoke, host-migration]
+
+  api:
+    image: shelfops-api:production-smoke
+    build:
+      context: ..
+      dockerfile: Dockerfile.api
+    environment:
+      DATABASE_URL: postgres://shelfops_smoke:${SMOKE_DB_PASSWORD:?required}@db:5432/shelfops_smoke
+      CURSOR_SECRET: ${SMOKE_CURSOR_SECRET:?required}
+    ports:
+      - "127.0.0.1:${SMOKE_API_PORT:?required}:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    read_only: true
+    tmpfs: [/tmp]
+    user: "1000:1000"
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+    networks: [smoke, host-probe]
+
+networks:
+  smoke:
+    internal: true
+  host-migration:
+  host-probe:
+
+volumes:
+  shelfops-production-smoke-db:

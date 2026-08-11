@@ -67,6 +67,7 @@ Rotating `CURSOR_SECRET` invalidates outstanding cursors. Deploy rotation as an 
 
 Production database changes use the fail-closed commands documented in [Run PostgreSQL migrations](operations/migrations.md).
 Build, inspect, run, and roll back the production artifact with [Run the production API container](operations/container.md).
+Verify the complete local image, migration, restart, and persistence path with [Verify the local production topology](operations/production-smoke.md).
 
 Start the API in one terminal:
 
