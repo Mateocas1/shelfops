@@ -46,14 +46,14 @@ describe("migration command", () => {
     await expect(discoverMigrations(path)).rejects.toThrow("migration-files-invalid");
   });
 
-  it("applies 001-011 once and reports current", async () => {
+  it("applies 001-012 once and reports current", async () => {
     await reset();
     const path = resolve("migrations");
     const first = await migrate(url, path, "apply");
-    expect(first).toMatchObject({ status: "current", current: 11 });
-    expect(first.applied).toHaveLength(11);
+    expect(first).toMatchObject({ status: "current", current: 12 });
+    expect(first.applied).toHaveLength(12);
     const repeated = await migrate(url, path, "apply");
-    expect(repeated).toEqual({ status: "current", current: 11, pending: [], applied: [], drift: [] });
+    expect(repeated).toEqual({ status: "current", current: 12, pending: [], applied: [], drift: [] });
     expect(await migrate(url, path, "status")).toEqual(repeated);
   }, 120_000);
 
