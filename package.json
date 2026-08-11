@@ -10,6 +10,8 @@
     "test": "pnpm test:unit",
     "test:unit": "vitest run",
     "test:integration": "tsx scripts/run-integration-tests.ts",
+    "migrate": "tsx scripts/migrate.ts",
+    "migrate:status": "tsx scripts/migrate.ts status",
     "build:producers": "pnpm --filter @shelfops/domain build && pnpm --filter @shelfops/application build && pnpm --filter @shelfops/contracts build && pnpm --filter @shelfops/infrastructure build",
     "test:contract": "pnpm run build:producers && vitest run --config vitest.contract.config.ts",
     "test:all": "pnpm typecheck && pnpm test && pnpm test:integration && pnpm test:contract && pnpm build",
