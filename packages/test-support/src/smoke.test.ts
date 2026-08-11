@@ -44,6 +44,7 @@ describe("workspace smoke", () => {
       startApi({
         configurationExecutor,
         identityProvider: productionIdentityProvider,
+        dependencyProbe: async () => undefined,
         cursorSecret,
         port: "3111",
         buildApi: async () => app,
@@ -66,6 +67,7 @@ describe("workspace smoke", () => {
     await startApi({
       configurationExecutor: injectedExecutor,
       identityProvider: productionIdentityProvider,
+      dependencyProbe: async () => undefined,
       cursorSecret,
       createPool,
       port: "3111",

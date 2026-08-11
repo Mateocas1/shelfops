@@ -9,6 +9,7 @@ import type { PostgresTriageAuthorityExecutor } from "@shelfops/infrastructure/t
 
 import { registerApiFoundation } from "./openapi.js";
 import { registerApiRoutes, type ApiRegistrationDependencies } from "./routes/register.js";
+import type { Readiness } from "./routes/health.js";
 
 export interface BuildApiOptions {
   configurationExecutor: ConfigurationExecutor;
@@ -24,6 +25,7 @@ export interface BuildApiOptions {
   registerApi?: (app: FastifyInstance, dependencies: ApiRegistrationDependencies) => Promise<void>;
   closeOwnedResource?: () => Promise<void>;
   logError?: (error: unknown) => void;
+  readiness?: Readiness;
 }
 
 export async function buildApi(options: BuildApiOptions): Promise<FastifyInstance> {
@@ -45,7 +47,8 @@ export async function buildApi(options: BuildApiOptions): Promise<FastifyInstanc
       triageAuthorityExecutor: options.triageAuthorityExecutor,
       slaPolicyExecutor: options.slaPolicyExecutor,
       recurrenceDecisionExecutor: options.recurrenceDecisionExecutor,
-      cursorSecret: options.cursorSecret ?? "development-only-cursor-secret"
+      cursorSecret: options.cursorSecret ?? "development-only-cursor-secret",
+      readiness: options.readiness ?? { isDraining: () => false, probe: async () => { throw new Error("Readiness dependency is not configured"); } }
     });
   } catch (error: unknown) {
     try { await app.close(); } catch (closeError: unknown) { options.logError?.(closeError); }

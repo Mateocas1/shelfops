@@ -195,7 +195,7 @@ describe("scoped incident read API", () => {
     apps.push(runtime);
     let captured: string | undefined;
     const configured = "externally-configured-cursor-secret-32-bytes";
-    await startApi({ configurationExecutor, identityProvider, cursorSecret: configured, buildApi: async (options) => { captured = options.cursorSecret; return runtime; } });
+    await startApi({ configurationExecutor, identityProvider, dependencyProbe: async () => undefined, cursorSecret: configured, buildApi: async (options) => { captured = options.cursorSecret; return runtime; } });
     expect(captured).toBe(configured);
   });
 

@@ -39,7 +39,7 @@ describe("API composition lifecycle", () => {
     if (!(registered instanceof PostgresConfigurationExecutor)) throw new Error("registration did not receive the production executor");
     expect(identityProvider).toMatchObject({ kind: "production" });
     if (!identityProvider) throw new Error("registration did not receive the production identity provider");
-    await expect(identityProvider.lookupSession(createOpaqueSessionId())).resolves.toBeUndefined(); expect(pool.query).toHaveBeenCalledOnce();
+    await expect(identityProvider.lookupSession(createOpaqueSessionId())).resolves.toBeUndefined(); expect(pool.query).toHaveBeenCalledTimes(2); expect(pool.query).toHaveBeenNthCalledWith(1, "SELECT 1");
     await expect(registered.execute(undefined as never, undefined as never)).rejects.toBe(sentinel);
     expect(createPool).toHaveBeenCalledOnce(); expect(pool.connect).toHaveBeenCalledTimes(2);
     await app.close(); expect(pool.end).toHaveBeenCalledOnce();
@@ -96,7 +96,7 @@ describe("API composition lifecycle", () => {
     const protectedKeys = new Set<PropertyKey>(["close", "end", Symbol.asyncDispose]);
     const external = new Proxy({ execute: vi.fn(), close, end, [Symbol.asyncDispose]: dispose }, { get(target, key, receiver) { if (protectedKeys.has(key)) reads.push(key); return Reflect.get(target, key, receiver); } });
     let registered: ConfigurationExecutor | undefined; const failure = new Error("listen failed");
-    await expect(startApi({ configurationExecutor: external, identityProvider: productionIdentityProvider, cursorSecret, port: "3111", logError: () => undefined, buildApi: async (options) => { const app = await registeredApp(options, (executor) => { registered = executor; }); vi.spyOn(app, "listen").mockRejectedValue(failure); return app; } })).rejects.toBe(failure);
+    await expect(startApi({ configurationExecutor: external, identityProvider: productionIdentityProvider, dependencyProbe: async () => undefined, cursorSecret, port: "3111", logError: () => undefined, buildApi: async (options) => { const app = await registeredApp(options, (executor) => { registered = executor; }); vi.spyOn(app, "listen").mockRejectedValue(failure); return app; } })).rejects.toBe(failure);
     expect(registered).toBe(external); expect(reads).toEqual([]);
     expect(close).not.toHaveBeenCalled(); expect(end).not.toHaveBeenCalled(); expect(dispose).not.toHaveBeenCalled();
   });
@@ -116,6 +116,6 @@ describe("API composition lifecycle", () => {
 
   it("rejects development identity adapters from production startup", async () => {
     const external: ConfigurationExecutor = { execute: vi.fn() }; let started: Awaited<ReturnType<typeof buildApi>> | undefined;
-    try { const error = await startApi({ configurationExecutor: external, identityProvider: createDevelopmentIdentityProvider(() => undefined), cursorSecret, port: "3111", logError: () => undefined, buildApi: async (options) => { started = await buildApi(options); vi.spyOn(started, "listen").mockResolvedValue(undefined); return started; } }).then(() => undefined, (caught: unknown) => caught); expect(error).toBeInstanceOf(Error); expect((error as Error).message).toBe("Development identity adapters cannot run in production"); } finally { await started?.close(); }
+    try { const error = await startApi({ configurationExecutor: external, identityProvider: createDevelopmentIdentityProvider(() => undefined), dependencyProbe: async () => undefined, cursorSecret, port: "3111", logError: () => undefined, buildApi: async (options) => { started = await buildApi(options); vi.spyOn(started, "listen").mockResolvedValue(undefined); return started; } }).then(() => undefined, (caught: unknown) => caught); expect(error).toBeInstanceOf(Error); expect((error as Error).message).toBe("Development identity adapters cannot run in production"); } finally { await started?.close(); }
   });
 });

@@ -52,7 +52,12 @@ CI has read-only repository permission. It does not publish, deploy, seed produc
 
 Playwright is a future extension point and is not run by the current workflow. Add its browser installation and E2E command only when a later slice owns the PWA harness and browser policy.
 
-## API health smoke
+## API lifecycle smoke
+
+`GET /health` proves only that the API process can answer. `GET /ready` proves that the process is not draining and its shared PostgreSQL pool can execute a probe. Readiness returns `503 {"status":"unavailable"}` without dependency details when PostgreSQL is unavailable or shutdown has begun.
+
+Production startup probes PostgreSQL before opening the listener. `SIGTERM` and `SIGINT` stop readiness first, then allow Fastify up to 10 seconds to close; exceeding that deadline marks the process exit as failed.
+Externally composed production adapters must inject their PostgreSQL probe; the API never assumes ownership of that dependency.
 
 ## Production cursor configuration
 
@@ -70,6 +75,7 @@ Then request the bootstrap health route from another terminal:
 
 ```sh
 curl http://127.0.0.1:3000/health
+curl --fail http://127.0.0.1:3000/ready
 ```
 
-The expected response is `{"status":"ok"}`. This smoke check does not replace the frozen matrix above.
+The expected responses are `{"status":"ok"}` and `{"status":"ready"}`. This smoke check does not replace the frozen matrix above.

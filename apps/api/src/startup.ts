@@ -11,6 +11,7 @@ import type { ConfigurationExecutor } from "@shelfops/application/ports/configur
 import type { IdentityProvider } from "@shelfops/application/ports/identity-provider";
 
 import { buildApi, type BuildApiOptions } from "./app.js";
+import { createLifecycle, type Lifecycle } from "./lifecycle.js";
 
 const TCP_PORT_PATTERN = /^\d+$/;
 const INVALID_PORT_MESSAGE = "PORT must be a TCP port between 1 and 65535";
@@ -29,6 +30,8 @@ export interface StartupOptions {
   createPool?: (connectionString: string) => ApiPool;
   buildApi?: (options: BuildApiOptions) => Promise<FastifyInstance>;
   logError?: (error: unknown) => void;
+  lifecycle?: Lifecycle;
+  dependencyProbe?: () => Promise<void>;
 }
 
 interface ApiPool {
@@ -82,6 +85,8 @@ export async function startApi(options: StartupOptions = {}): Promise<FastifyIns
     let triageAuthorityExecutor = options.triageAuthorityExecutor;
     let slaPolicyExecutor = options.slaPolicyExecutor;
     let recurrenceDecisionExecutor = options.recurrenceDecisionExecutor;
+    const lifecycle = options.lifecycle ?? createLifecycle();
+    let dependencyProbe = options.dependencyProbe;
 
     if (!configurationExecutor) {
       const connectionString = process.env.DATABASE_URL?.trim();
@@ -89,6 +94,7 @@ export async function startApi(options: StartupOptions = {}): Promise<FastifyIns
 
       const pool = (options.createPool ?? ((value) => new Pool({ connectionString: value })))(connectionString);
       closeOwnedResource = closeOnce(pool);
+      dependencyProbe = async () => { await pool.query("SELECT 1"); };
       configurationExecutor = new PostgresConfigurationExecutor(pool);
       identityProvider ??= new PostgresIdentityProvider(pool);
       const repository = new PostgresAuthorizedIncidentRepository(pool as Pool);
@@ -102,7 +108,10 @@ export async function startApi(options: StartupOptions = {}): Promise<FastifyIns
       throw new Error("A production identity provider is required with an external configuration executor");
     }
 
-    app = await (options.buildApi ?? buildApi)({ configurationExecutor, identityProvider, incidentRepository, incidentCreationExecutor, triageAuthoritySource, triageAuthorityExecutor, slaPolicyExecutor, recurrenceDecisionExecutor, cursorSecret, environment: "production", closeOwnedResource, logError });
+    if (!dependencyProbe) throw new Error("A production dependency probe is required");
+    await dependencyProbe();
+
+    app = await (options.buildApi ?? buildApi)({ configurationExecutor, identityProvider, incidentRepository, incidentCreationExecutor, triageAuthoritySource, triageAuthorityExecutor, slaPolicyExecutor, recurrenceDecisionExecutor, cursorSecret, environment: "production", closeOwnedResource, logError, readiness: { ...lifecycle, probe: dependencyProbe } });
     await app.listen({
       host: options.host ?? process.env.HOST ?? "127.0.0.1",
       port: parsePort(options.port ?? process.env.PORT)

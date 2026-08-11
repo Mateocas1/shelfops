@@ -9,6 +9,7 @@ import type { FastifyInstance } from "fastify";
 
 import { registerSessionBoundary } from "../auth/session-boundary.js";
 import { registerHealthRoute } from "./health.js";
+import type { Readiness } from "./health.js";
 import { registerIncidentReadRoutes } from "./incidents-read.js";
 import { registerIncidentCreationRoute } from "./incidents-create.js";
 import { registerIncidentTriageEvaluationRoute } from "./incidents-triage-evaluations.js";
@@ -28,6 +29,7 @@ export interface ApiRegistrationDependencies {
   slaPolicyExecutor?: SlaPolicyConfigurationExecutor;
   recurrenceDecisionExecutor?: RecurrenceDecisionExecutor;
   cursorSecret: string;
+  readiness: Readiness;
 }
 
 export async function registerPublishedRoutes(app: FastifyInstance, dependencies: ApiRegistrationDependencies): Promise<void> {
@@ -46,7 +48,7 @@ export async function registerPublishedRoutes(app: FastifyInstance, dependencies
 }
 
 export async function registerApiRoutes(app: FastifyInstance, dependencies: ApiRegistrationDependencies): Promise<void> {
-  await registerHealthRoute(app);
+  await registerHealthRoute(app, dependencies.readiness);
   await registerSessionBoundary(app, { identityProvider: dependencies.identityProvider });
   await registerPublishedRoutes(app, dependencies);
 }

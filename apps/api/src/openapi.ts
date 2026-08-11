@@ -24,7 +24,7 @@ export async function registerApiFoundation(app: FastifyInstance, options: ApiFo
   const subject = options.subject ?? "test-user";
   await app.register(swagger, {
     openapi: { openapi: "3.1.0", info: { title: "ShelfOps API", version: "1.0.0" }, components: { securitySchemes: { sessionCookie: { type: "apiKey", in: "cookie", name: "shelfops_session" } } } },
-    transform: ({ schema, url }) => ({ schema: url === "/health" || url === "/api/v1/me" ? { ...schema, hide: true } : schema, url })
+    transform: ({ schema, url }) => ({ schema: url === "/health" || url === "/ready" || url === "/api/v1/me" ? { ...schema, hide: true } : schema, url })
   });
   registerErrorHandling(app);
   app.get<{ Querystring: ApiQuery }>("/api/v1", { schema: ApiRootSchema, onRequest: async (request) => rejectUnknownQuery(request.raw.url) }, async (request): Promise<ApiRootResponse> => {
