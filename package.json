@@ -12,6 +12,7 @@
     "test:integration": "tsx scripts/run-integration-tests.ts",
     "migrate": "tsx scripts/migrate.ts",
     "migrate:status": "tsx scripts/migrate.ts status",
+    "demo": "tsx scripts/demo.ts",
     "smoke:production": "tsx scripts/smoke-production.ts",
     "oidc:proof": "tsx scripts/prove-oidc-runtime.ts",
     "build:producers": "pnpm --filter @shelfops/domain build && pnpm --filter @shelfops/application build && pnpm --filter @shelfops/contracts build && pnpm --filter @shelfops/infrastructure build",

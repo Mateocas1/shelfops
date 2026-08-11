@@ -54,6 +54,8 @@ Playwright is a future extension point and is not run by the current workflow. A
 
 ## API lifecycle smoke
 
+For a five-minute reviewer walkthrough of the real API, PostgreSQL adapters, and incident triage lifecycle, run the [portfolio demo](demo.md).
+
 `GET /health` proves only that the API process can answer. `GET /ready` proves that the process is not draining and its shared PostgreSQL pool can execute a probe. Readiness returns `503 {"status":"unavailable"}` without dependency details when PostgreSQL is unavailable or shutdown has begun.
 
 Production startup probes PostgreSQL before opening the listener. `SIGTERM` and `SIGINT` stop readiness first, then allow Fastify up to 10 seconds to close; exceeding that deadline marks the process exit as failed.
