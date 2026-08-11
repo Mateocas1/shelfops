@@ -12,6 +12,7 @@ import type { IdentityProvider } from "@shelfops/application/ports/identity-prov
 
 import { buildApi, type BuildApiOptions } from "./app.js";
 import { createLifecycle, type Lifecycle } from "./lifecycle.js";
+import { createApiLogger, validateLogLevel, type ApiLogger } from "./logging.js";
 
 const TCP_PORT_PATTERN = /^\d+$/;
 const INVALID_PORT_MESSAGE = "PORT must be a TCP port between 1 and 65535";
@@ -32,6 +33,8 @@ export interface StartupOptions {
   logError?: (error: unknown) => void;
   lifecycle?: Lifecycle;
   dependencyProbe?: () => Promise<void>;
+  logger?: ApiLogger | false;
+  logLevel?: string;
 }
 
 interface ApiPool {
@@ -71,11 +74,15 @@ function closeOnce(pool: ApiPool): () => Promise<void> {
 }
 
 export async function startApi(options: StartupOptions = {}): Promise<FastifyInstance> {
-  const logError = options.logError ?? console.error;
+  let logger = options.logger || undefined;
+  const bootstrapLogger = options.logger === false ? undefined : logger ?? createApiLogger({ environment: process.env.NODE_ENV ?? "production", release: process.env.RELEASE ?? process.env.npm_package_version ?? "unknown" });
+  const logError = options.logError ?? ((error: unknown) => (logger ?? bootstrapLogger)?.error("startup.failed", error));
   let app: FastifyInstance | undefined;
   let closeOwnedResource: (() => Promise<void>) | undefined;
 
   try {
+    validateLogLevel(options.logLevel ?? process.env.LOG_LEVEL);
+    if (options.logger !== false) logger ??= createApiLogger({ environment: process.env.NODE_ENV ?? "production", release: process.env.RELEASE ?? process.env.npm_package_version ?? "unknown", level: options.logLevel ?? process.env.LOG_LEVEL });
     const cursorSecret = requireCursorSecret(options.cursorSecret ?? process.env.CURSOR_SECRET);
     let configurationExecutor = options.configurationExecutor;
     let identityProvider = options.identityProvider;
@@ -111,11 +118,12 @@ export async function startApi(options: StartupOptions = {}): Promise<FastifyIns
     if (!dependencyProbe) throw new Error("A production dependency probe is required");
     await dependencyProbe();
 
-    app = await (options.buildApi ?? buildApi)({ configurationExecutor, identityProvider, incidentRepository, incidentCreationExecutor, triageAuthoritySource, triageAuthorityExecutor, slaPolicyExecutor, recurrenceDecisionExecutor, cursorSecret, environment: "production", closeOwnedResource, logError, readiness: { ...lifecycle, probe: dependencyProbe } });
+    app = await (options.buildApi ?? buildApi)({ configurationExecutor, identityProvider, incidentRepository, incidentCreationExecutor, triageAuthoritySource, triageAuthorityExecutor, slaPolicyExecutor, recurrenceDecisionExecutor, cursorSecret, environment: "production", closeOwnedResource, logError, logger, readiness: { ...lifecycle, probe: dependencyProbe } });
     await app.listen({
       host: options.host ?? process.env.HOST ?? "127.0.0.1",
       port: parsePort(options.port ?? process.env.PORT)
     });
+    logger?.info("startup.ready", { host: options.host ?? process.env.HOST ?? "127.0.0.1", port: parsePort(options.port ?? process.env.PORT) });
 
     return app;
   } catch (error: unknown) {

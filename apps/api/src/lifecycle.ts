@@ -13,14 +13,18 @@ export function createLifecycle(): Lifecycle {
   return { isDraining: () => draining, beginDrain: () => { draining = true; } };
 }
 
-export async function shutdownWithin(beginDrain: () => void, close: () => Promise<void>, timeoutMs: number): Promise<boolean> {
+export async function shutdownWithin(beginDrain: () => void, close: () => Promise<void>, timeoutMs: number, logger?: ApiLogger): Promise<boolean> {
   beginDrain();
+  logger?.info("shutdown.begin");
   let timer: NodeJS.Timeout | undefined;
   try {
-    return await Promise.race([
-      close().then(() => true, () => false),
-      new Promise<false>((resolve) => { timer = setTimeout(() => resolve(false), timeoutMs); })
+    const result = await Promise.race([
+      close().then(() => "completed" as const, () => "failed" as const),
+      new Promise<"timeout">((resolve) => { timer = setTimeout(() => resolve("timeout"), timeoutMs); })
     ]);
+    if (result === "completed") logger?.info("shutdown.completed");
+    else logger?.error(result === "timeout" ? "shutdown.timeout" : "shutdown.failed", new Error(result));
+    return result === "completed";
   } finally {
     if (timer) clearTimeout(timer);
   }
@@ -37,3 +41,4 @@ export function bindShutdownSignals(signals: SignalSource, shutdown: () => Promi
   signals.once("SIGTERM", stop);
   signals.once("SIGINT", stop);
 }
+import type { ApiLogger } from "./logging.js";

@@ -10,6 +10,7 @@ import type { PostgresTriageAuthorityExecutor } from "@shelfops/infrastructure/t
 import { registerApiFoundation } from "./openapi.js";
 import { registerApiRoutes, type ApiRegistrationDependencies } from "./routes/register.js";
 import type { Readiness } from "./routes/health.js";
+import { registerRequestLogging, safeCorrelationId, type ApiLogger } from "./logging.js";
 
 export interface BuildApiOptions {
   configurationExecutor: ConfigurationExecutor;
@@ -26,6 +27,7 @@ export interface BuildApiOptions {
   closeOwnedResource?: () => Promise<void>;
   logError?: (error: unknown) => void;
   readiness?: Readiness;
+  logger?: ApiLogger | false;
 }
 
 export async function buildApi(options: BuildApiOptions): Promise<FastifyInstance> {
@@ -33,7 +35,8 @@ export async function buildApi(options: BuildApiOptions): Promise<FastifyInstanc
     throw new Error("Development identity adapters cannot run in production");
   }
 
-  const app = Fastify({ logger: false });
+  const app = Fastify({ logger: false, genReqId: (request) => safeCorrelationId(request.headers["x-correlation-id"], crypto.randomUUID()) });
+  if (options.logger) registerRequestLogging(app, options.logger);
 
   if (options.closeOwnedResource) app.addHook("onClose", async () => options.closeOwnedResource?.());
   try {
