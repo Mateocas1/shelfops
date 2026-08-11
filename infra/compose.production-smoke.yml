@@ -27,6 +27,7 @@ services:
     environment:
       DATABASE_URL: postgres://shelfops_smoke:${SMOKE_DB_PASSWORD:?required}@db:5432/shelfops_smoke
       CURSOR_SECRET: ${SMOKE_CURSOR_SECRET:?required}
+      METRICS_BEARER_TOKEN: ${SMOKE_METRICS_BEARER_TOKEN:?required}
     ports:
       - "127.0.0.1:${SMOKE_API_PORT:?required}:3000"
     depends_on:

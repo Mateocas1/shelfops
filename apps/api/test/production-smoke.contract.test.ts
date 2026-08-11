@@ -15,6 +15,7 @@ describe("local production smoke topology", () => {
     expect(compose).toMatch(/127\.0\.0\.1:\$\{SMOKE_(?:DB|API)_PORT/);
     expect(compose).toContain("pg_isready");
     expect(compose).toContain("/ready");
+    expect(compose).toContain("METRICS_BEARER_TOKEN: ${SMOKE_METRICS_BEARER_TOKEN:?required}");
     expect(compose).toContain("read_only: true");
     expect(compose).toContain("no-new-privileges:true");
     expect(compose).toContain("restart: unless-stopped");
@@ -37,6 +38,9 @@ describe("local production smoke topology", () => {
     expect(script).toContain("pnpm");
     expect(script).toContain("migrate:status");
     expect(script).toContain("restart");
+    expect(script).toContain("shelfops_readiness 0");
+    expect(script).toContain('route="__unmatched__"');
+    expect(script).toContain('["stop", "api"]');
     expect(script).toMatch(/\["down", "--volumes"/);
     expect(script).toMatch(/setTimeout|AbortSignal\.timeout/);
     expect(script).not.toMatch(/console\.(?:log|error)\([^\n]*(?:DATABASE_URL|POSTGRES_PASSWORD|CURSOR_SECRET)/);

@@ -69,6 +69,7 @@ Production database changes use the fail-closed commands documented in [Run Post
 Build, inspect, run, and roll back the production artifact with [Run the production API container](operations/container.md).
 Verify the complete local image, migration, restart, and persistence path with [Verify the local production topology](operations/production-smoke.md).
 Configure and collect secret-safe production output with [Collect production API logs](operations/logging.md).
+Configure scraping, bounded labels, and diagnostic alerts with [Scrape production API metrics](operations/metrics.md).
 
 Start the API in one terminal:
 

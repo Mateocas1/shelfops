@@ -13,9 +13,11 @@ import type { IdentityProvider } from "@shelfops/application/ports/identity-prov
 import { buildApi, type BuildApiOptions } from "./app.js";
 import { createLifecycle, type Lifecycle } from "./lifecycle.js";
 import { createApiLogger, validateLogLevel, type ApiLogger } from "./logging.js";
+import { createMetrics, validateMetricsCredential, type PoolDiagnostics } from "./metrics.js";
 
 const TCP_PORT_PATTERN = /^\d+$/;
 const INVALID_PORT_MESSAGE = "PORT must be a TCP port between 1 and 65535";
+const TEST_METRICS_CREDENTIAL = "synthetic-test-metrics-credential-32-bytes";
 
 export interface StartupOptions {
   port?: string;
@@ -35,12 +37,18 @@ export interface StartupOptions {
   dependencyProbe?: () => Promise<void>;
   logger?: ApiLogger | false;
   logLevel?: string;
+  metricsCredential?: string;
+  metricsDiagnostics?: () => PoolDiagnostics;
 }
 
 interface ApiPool {
   connect: Pool["connect"];
   query: Pool["query"];
   end: Pool["end"];
+  totalCount?: number;
+  idleCount?: number;
+  waitingCount?: number;
+  on?: Pool["on"];
 }
 
 function requireCursorSecret(value: string | undefined): string {
@@ -84,6 +92,7 @@ export async function startApi(options: StartupOptions = {}): Promise<FastifyIns
     validateLogLevel(options.logLevel ?? process.env.LOG_LEVEL);
     if (options.logger !== false) logger ??= createApiLogger({ environment: process.env.NODE_ENV ?? "production", release: process.env.RELEASE ?? process.env.npm_package_version ?? "unknown", level: options.logLevel ?? process.env.LOG_LEVEL });
     const cursorSecret = requireCursorSecret(options.cursorSecret ?? process.env.CURSOR_SECRET);
+    const metricsCredential = validateMetricsCredential(options.metricsCredential ?? process.env.METRICS_BEARER_TOKEN ?? (process.env.NODE_ENV === "test" ? TEST_METRICS_CREDENTIAL : undefined));
     let configurationExecutor = options.configurationExecutor;
     let identityProvider = options.identityProvider;
     let incidentRepository: BuildApiOptions["incidentRepository"];
@@ -94,14 +103,17 @@ export async function startApi(options: StartupOptions = {}): Promise<FastifyIns
     let recurrenceDecisionExecutor = options.recurrenceDecisionExecutor;
     const lifecycle = options.lifecycle ?? createLifecycle();
     let dependencyProbe = options.dependencyProbe;
+    let metricsDiagnostics = options.metricsDiagnostics;
 
     if (!configurationExecutor) {
       const connectionString = process.env.DATABASE_URL?.trim();
       if (!connectionString) throw new Error("DATABASE_URL must be nonblank");
 
-      const pool = (options.createPool ?? ((value) => new Pool({ connectionString: value })))(connectionString);
+      const pool = (options.createPool ?? ((value) => new Pool({ connectionString: value, connectionTimeoutMillis: 1_000 })))(connectionString);
+      pool.on?.("error", (error) => logger?.error("dependency.failed", error));
       closeOwnedResource = closeOnce(pool);
       dependencyProbe = async () => { await pool.query("SELECT 1"); };
+      metricsDiagnostics = () => ({ total: pool.totalCount ?? 0, idle: pool.idleCount ?? 0, waiting: pool.waitingCount ?? 0 });
       configurationExecutor = new PostgresConfigurationExecutor(pool);
       identityProvider ??= new PostgresIdentityProvider(pool);
       const repository = new PostgresAuthorizedIncidentRepository(pool as Pool);
@@ -116,9 +128,13 @@ export async function startApi(options: StartupOptions = {}): Promise<FastifyIns
     }
 
     if (!dependencyProbe) throw new Error("A production dependency probe is required");
+    if (!metricsDiagnostics && process.env.NODE_ENV === "test") metricsDiagnostics = () => ({ total: 0, idle: 0, waiting: 0 });
+    if (!metricsDiagnostics) throw new Error("Bounded production pool diagnostics are required");
     await dependencyProbe();
 
-    app = await (options.buildApi ?? buildApi)({ configurationExecutor, identityProvider, incidentRepository, incidentCreationExecutor, triageAuthoritySource, triageAuthorityExecutor, slaPolicyExecutor, recurrenceDecisionExecutor, cursorSecret, environment: "production", closeOwnedResource, logError, logger, readiness: { ...lifecycle, probe: dependencyProbe } });
+    const readiness = { ...lifecycle, probe: dependencyProbe };
+    const metrics = createMetrics({ credential: metricsCredential, environment: process.env.NODE_ENV ?? "production", release: process.env.RELEASE ?? process.env.npm_package_version ?? "unknown", readiness, pool: metricsDiagnostics });
+    app = await (options.buildApi ?? buildApi)({ configurationExecutor, identityProvider, incidentRepository, incidentCreationExecutor, triageAuthoritySource, triageAuthorityExecutor, slaPolicyExecutor, recurrenceDecisionExecutor, cursorSecret, environment: "production", closeOwnedResource, logError, logger, readiness, metrics });
     await app.listen({
       host: options.host ?? process.env.HOST ?? "127.0.0.1",
       port: parsePort(options.port ?? process.env.PORT)
