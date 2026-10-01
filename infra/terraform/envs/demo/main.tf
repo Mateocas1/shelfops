@@ -12,6 +12,10 @@ locals {
   enable_compute  = var.enable_compute && !var.localstack
   enable_ingress  = var.enable_ingress && !var.localstack
   enable_budget   = var.enable_budget && !var.localstack
+  # Cognito is not emulated by the LocalStack free plan, so it is skipped there.
+  enable_auth = var.enable_auth && !var.localstack
+  # OIDC is active when either the operator provides the bundle or Cognito owns it.
+  oidc_active = var.oidc_enabled || local.enable_auth
 
   db_password = var.db_password != null ? var.db_password : random_password.db_password.result
 
@@ -28,12 +32,22 @@ locals {
   ingress_target_group_arn  = try(module.ingress[0].target_group_arn, null)
   ingress_alb_arn_suffix    = try(module.ingress[0].alb_arn_suffix, null)
   ingress_target_arn_suffix = try(module.ingress[0].target_group_arn_suffix, null)
+  ingress_domain            = try(module.ingress[0].distribution_domain_name, null)
 
-  oidc_environment = var.oidc_enabled ? {
-    SHELFOPS_OIDC_ISSUER                   = var.oidc_issuer
-    SHELFOPS_OIDC_CLIENT_ID                = var.oidc_client_id
-    SHELFOPS_OIDC_CALLBACK_URL             = var.oidc_callback_url
-    SHELFOPS_OIDC_DESTINATION_URL          = var.oidc_destination_url
+  # Cognito outputs feed the SHELFOPS_OIDC_* bundle when enable_auth is on;
+  # otherwise the operator-provided variables are used unchanged.
+  auth_issuer        = local.enable_auth ? try(module.auth[0].issuer_url, var.oidc_issuer) : var.oidc_issuer
+  auth_client_id     = local.enable_auth ? try(module.auth[0].client_id, var.oidc_client_id) : var.oidc_client_id
+  auth_client_secret = local.enable_auth ? try(module.auth[0].client_secret, var.oidc_client_secret) : var.oidc_client_secret
+  auth_callback_url  = local.enable_auth && local.ingress_domain != null ? "https://${local.ingress_domain}/auth/callback" : var.oidc_callback_url
+  # No web UI: the post-login destination is the API's own principal endpoint.
+  auth_destination_url = local.enable_auth && local.ingress_domain != null ? "https://${local.ingress_domain}/api/v1/me" : var.oidc_destination_url
+
+  oidc_environment = local.oidc_active ? {
+    SHELFOPS_OIDC_ISSUER                   = local.auth_issuer
+    SHELFOPS_OIDC_CLIENT_ID                = local.auth_client_id
+    SHELFOPS_OIDC_CALLBACK_URL             = local.auth_callback_url
+    SHELFOPS_OIDC_DESTINATION_URL          = local.auth_destination_url
     SHELFOPS_OIDC_ORGANIZATION_ID          = var.oidc_organization_id
     SHELFOPS_OIDC_SESSION_TTL_SECONDS      = tostring(var.oidc_session_ttl_seconds)
     SHELFOPS_OIDC_PROVIDER_TIMEOUT_SECONDS = tostring(var.oidc_provider_timeout_seconds)
@@ -81,8 +95,16 @@ resource "terraform_data" "guards" {
       error_message = "enable_network must stay true while database, compute or ingress is enabled."
     }
     precondition {
-      condition     = !var.oidc_enabled || var.oidc_client_secret != null
-      error_message = "oidc_client_secret is required when oidc_enabled is true."
+      condition     = !local.oidc_active || local.auth_client_secret != null
+      error_message = "oidc_client_secret is required when OIDC is enabled, or set enable_auth = true to let Cognito own it."
+    }
+    precondition {
+      condition     = !local.enable_auth || local.enable_ingress
+      error_message = "enable_auth requires enable_ingress: the Cognito callback URL is derived from the CloudFront domain."
+    }
+    precondition {
+      condition     = !local.oidc_active || var.oidc_organization_id != ""
+      error_message = "oidc_organization_id is required when OIDC is enabled."
     }
     precondition {
       condition     = !local.enable_budget || var.alarm_email != ""
@@ -129,7 +151,22 @@ module "secrets" {
   database_name      = var.db_name
   database_username  = var.db_username
   database_password  = local.db_password
-  oidc_client_secret = var.oidc_enabled ? var.oidc_client_secret : null
+  oidc_client_secret = local.oidc_active ? local.auth_client_secret : null
+}
+
+# Cognito User Pool, Hosted UI prefix domain and API app client. When enabled it
+# owns the issuer, client id and client secret for the OIDC bundle.
+module "auth" {
+  source = "../../modules/auth"
+  count  = local.enable_auth ? 1 : 0
+
+  name                = local.name
+  aws_region          = var.aws_region
+  callback_urls       = ["https://${coalesce(local.ingress_domain, "enable-ingress-required.invalid")}/auth/callback"]
+  logout_urls         = ["https://${coalesce(local.ingress_domain, "enable-ingress-required.invalid")}/"]
+  domain_prefix       = var.cognito_domain_prefix
+  mfa_configuration   = var.cognito_mfa_configuration
+  deletion_protection = var.cognito_deletion_protection
 }
 
 module "ingress" {

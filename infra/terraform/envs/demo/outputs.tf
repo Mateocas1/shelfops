@@ -3,6 +3,11 @@ output "cloudfront_domain_name" {
   value       = try(module.ingress[0].distribution_domain_name, null)
 }
 
+output "aws_region" {
+  description = "AWS region the demo is deployed into."
+  value       = var.aws_region
+}
+
 output "smoke_url" {
   description = "Readiness URL through CloudFront."
   value       = try("https://${module.ingress[0].distribution_domain_name}/ready", null)
@@ -89,4 +94,34 @@ output "seed_tenant_task_command" {
     "aws ecs run-task --cluster ${module.compute[0].cluster_name} --task-definition ${module.compute[0].one_off_task_definition_arn} --launch-type FARGATE --network-configuration \"awsvpcConfiguration={subnets=[${join(",", local.network_public_subnet_ids)}],securityGroups=[${local.network_task_security_group_id}],assignPublicIp=ENABLED}\" --overrides '{\"containerOverrides\":[{\"name\":\"one-off\",\"command\":[\"node\",\"scripts/seed-tenant.cjs\",\"--org-slug\",\"<slug>\",\"--org-name\",\"<name>\",\"--store-code\",\"<code>\",\"--store-name\",\"<name>\",\"--user-email\",\"<email>\",\"--oidc-issuer\",\"<issuer>\",\"--oidc-subject\",\"<subject>\"]}]}'",
     null
   )
+}
+
+output "cognito_user_pool_id" {
+  description = "Cognito User Pool id, or null when enable_auth is off."
+  value       = try(module.auth[0].user_pool_id, null)
+}
+
+output "cognito_hosted_ui_domain" {
+  description = "Cognito Hosted UI prefix domain, or null when enable_auth is off."
+  value       = try(module.auth[0].hosted_ui_domain, null)
+}
+
+output "oidc_issuer" {
+  description = "Effective SHELFOPS_OIDC_ISSUER (Cognito pool endpoint when enable_auth is on)."
+  value       = local.auth_issuer
+}
+
+output "oidc_client_id" {
+  description = "Effective SHELFOPS_OIDC_CLIENT_ID."
+  value       = local.auth_client_id
+}
+
+output "oidc_callback_url" {
+  description = "Effective SHELFOPS_OIDC_CALLBACK_URL."
+  value       = local.auth_callback_url
+}
+
+output "oidc_destination_url" {
+  description = "Effective SHELFOPS_OIDC_DESTINATION_URL."
+  value       = local.auth_destination_url
 }
