@@ -1,5 +1,6 @@
-import { readFile } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
 import { spawn } from "node:child_process";
+import { resolve } from "node:path";
 
 const PROJECT = "shelfops-production-smoke";
 const COMPOSE = "infra/compose.production-smoke.yml";
@@ -7,6 +8,13 @@ const ENV_FILE = process.env.SMOKE_ENV_FILE ?? ".env.production";
 const STEP_TIMEOUT_MS = 180_000;
 
 function fail(message: string): never { throw new Error(message); }
+
+async function repositoryMigrationVersion(): Promise<number> {
+  const names = await readdir(resolve("migrations"));
+  const versions = names.filter((name) => /^\d{3}_[a-z0-9]+(?:-[a-z0-9]+)*\.sql$/.test(name)).map((name) => Number(name.slice(0, 3))).sort((left, right) => left - right);
+  if (versions.length === 0 || versions.some((version, index) => version !== index + 1)) fail("migrations directory is not a contiguous sequence");
+  return versions.length;
+}
 
 async function loadEnvironment(): Promise<NodeJS.ProcessEnv> {
   const values: Record<string, string> = {};
@@ -57,6 +65,7 @@ async function poll(label: string, probe: () => Promise<boolean>): Promise<void>
 
 async function main(): Promise<void> {
   const env = await loadEnvironment();
+  const migrationVersion = await repositoryMigrationVersion();
   const databaseUrl = `postgres://shelfops_smoke:${env.SMOKE_DB_PASSWORD}@127.0.0.1:${env.SMOKE_DB_PORT}/shelfops_smoke`;
   const migrationEnv = { ...env, DATABASE_URL: databaseUrl };
   await run("docker", ["info"], env, true);
@@ -75,7 +84,7 @@ async function main(): Promise<void> {
     const healthyMetrics = await scrape();
     if (!healthyMetrics.includes("shelfops_readiness 1") || !healthyMetrics.includes('route="__unmatched__"') || healthyMetrics.includes(canary)) fail("healthy metrics contract failed");
     const status = await run("pnpm", ["migrate:status"], migrationEnv, true);
-    if (!status.includes('"status":"current"') || !status.includes('"current":11')) fail("migration status is not current at version 11");
+    if (!status.includes('"status":"current"') || !status.includes(`"current":${migrationVersion}`)) fail(`migration status is not current at version ${migrationVersion}`);
     await compose(["exec", "-T", "db", "psql", "-U", "shelfops_smoke", "-d", "shelfops_smoke", "-c", "CREATE TABLE smoke_persistence(marker text PRIMARY KEY); INSERT INTO smoke_persistence VALUES ('api-restart');"], env);
     await compose(["restart", "api"], env);
     await poll("restarted API", async () => (await fetch(`${api}/ready`)).ok);
@@ -90,7 +99,7 @@ async function main(): Promise<void> {
     await compose(["stop", "api"], env);
     await compose(["down", "--volumes", "--remove-orphans"], env);
     clean = false;
-    console.log("production smoke passed: migrations=11 metrics=bounded db-down=visible signal=clean cleanup=complete");
+    console.log(`production smoke passed: migrations=${migrationVersion} metrics=bounded db-down=visible signal=clean cleanup=complete`);
   } finally {
     if (clean) await compose(["down", "--volumes", "--remove-orphans"], env).catch(() => undefined);
   }

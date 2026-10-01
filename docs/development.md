@@ -20,6 +20,7 @@ The command must exit successfully; start Docker Desktop or your compatible engi
 
 ```sh
 pnpm install --frozen-lockfile
+pnpm lint
 pnpm build:producers
 pnpm typecheck
 pnpm test:unit

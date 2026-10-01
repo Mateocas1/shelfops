@@ -22,7 +22,7 @@ The unpublished browser surface is exactly `GET /auth/login`, `GET /auth/callbac
 
 Run `pnpm oidc:proof`. It uses the pinned loopback issuer from `infra/compose.oidc.yml`, bounded HTTP waits, a fixed Compose project, and unconditional cleanup. The proof exercises login, callback, local session creation, callback replay rejection, and logout revocation. Loopback HTTP is test-only; production configuration still requires HTTPS.
 
-Deferred behavior remains absent: auto-provisioning, claim-derived authorization, provider logout, browser UI/E2E, rate limiting, production provider onboarding or secrets, and migration cleanup or constraint validation.
+Deferred behavior remains absent: auto-provisioning, claim-derived authorization, provider logout, browser UI/E2E, production provider onboarding or secrets, and migration cleanup or constraint validation. Entrypoint hardening outside this boundary (rate limiting, CORS policy, and proxy trust) is documented in [Run the production API container](operations/container.md).
 
 To roll back this unit, remove runtime proof and logout registration, then remove startup OIDC composition and operator configuration guidance. Keep the login/callback foundation and migration from the earlier units. Full capability rollback proceeds in reverse unit order and requires no schema rollback for this unit.
 
@@ -30,7 +30,7 @@ To roll back this unit, remove runtime proof and logout registration, then remov
 
 Migration 012 and `PostgresOidcLoginStore` provide provider-neutral persistence only. They hash authorization state, consume it once, resolve only an exact pre-provisioned `(issuer, subject)` mapping to an active organization user, create hash-only local session and CSRF credentials, and revoke a user session within its organization. Unknown, expired, and replayed state have the same safe result, and every operation participates in a caller-owned PostgreSQL transaction when needed.
 
-This foundation does not expose a login or callback route, validate provider tokens, permit a production provider, or auto-provision identities from email or claims. HTTPS issuers are canonicalized at the store boundary; a future API layer may explicitly permit loopback HTTP for tests only.
+The persistence foundation in this section validates no provider tokens, permits no production provider, and auto-provisions no identities from email or claims; the `GET /auth/login` and `GET /auth/callback` routes above are provided by the OIDC runtime layer. HTTPS issuers are canonicalized at the store boundary; loopback HTTP is permitted only for tests.
 
 Migration 012 installs `sessions_bounded_expiry` as `NOT VALID`: sessions created before 012 may retain lifetimes over 30 days, while PostgreSQL rejects every new or updated session that violates the bound. PU-07B must clean up or expire incompatible legacy rows, then explicitly validate the constraint; operators must not validate it before that cleanup.
 

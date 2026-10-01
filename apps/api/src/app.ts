@@ -11,6 +11,8 @@ import { registerApiFoundation } from "./openapi.js";
 import { registerApiRoutes, type ApiRegistrationDependencies } from "./routes/register.js";
 import type { Readiness } from "./routes/health.js";
 import { registerRequestLogging, safeCorrelationId, type ApiLogger } from "./logging.js";
+import { DEFAULT_CORS, DEFAULT_RATE_LIMIT, type CorsSettings, type RateLimitSettings } from "./config.js";
+import { registerCors, registerRateLimit } from "./hardening.js";
 import type { Metrics } from "./metrics.js";
 import type { OidcRouteDependencies } from "./auth/oidc-routes.js";
 
@@ -32,6 +34,9 @@ export interface BuildApiOptions {
   logger?: ApiLogger | false;
   metrics?: Metrics;
   oidc?: OidcRouteDependencies;
+  trustProxy?: false | number;
+  rateLimit?: RateLimitSettings;
+  cors?: CorsSettings;
 }
 
 export async function buildApi(options: BuildApiOptions): Promise<FastifyInstance> {
@@ -39,9 +44,11 @@ export async function buildApi(options: BuildApiOptions): Promise<FastifyInstanc
     throw new Error("Development identity adapters cannot run in production");
   }
 
-  const app = Fastify({ logger: false, genReqId: (request) => safeCorrelationId(request.headers["x-correlation-id"], crypto.randomUUID()) });
+  const app = Fastify({ logger: false, trustProxy: options.trustProxy ?? false, genReqId: (request) => safeCorrelationId(request.headers["x-correlation-id"], crypto.randomUUID()) });
   if (options.logger) registerRequestLogging(app, options.logger);
   if (options.metrics) await options.metrics.register(app);
+  await registerCors(app, options.cors ?? DEFAULT_CORS);
+  await registerRateLimit(app, options.rateLimit ?? DEFAULT_RATE_LIMIT);
 
   if (options.closeOwnedResource) app.addHook("onClose", async () => options.closeOwnedResource?.());
   try {

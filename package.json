@@ -20,11 +20,13 @@
     "test:contract": "pnpm run build:producers && vitest run --config vitest.contract.config.ts",
     "test:all": "pnpm typecheck && pnpm test && pnpm test:integration && pnpm test:contract && pnpm build",
     "openapi:generate": "tsx scripts/generate-openapi.ts",
+    "lint": "biome check .",
     "typecheck": "pnpm run build:producers && tsc --noEmit",
     "traceability:check": "tsx scripts/traceability/evidence-schema.ts",
     "build": "pnpm --recursive --if-present run build"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.4.16",
     "@shelfops/infrastructure": "workspace:*",
     "@testcontainers/postgresql": "^12.0.4",
     "@types/node": "^22.15.3",

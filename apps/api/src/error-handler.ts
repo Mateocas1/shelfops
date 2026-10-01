@@ -65,6 +65,8 @@ export function normalizeApiError(error: unknown, request: FastifyRequest): { st
   if (error instanceof Error && error.message === "stale-version") return { status: 409, body: apiError("stale-version", "Expected version is stale", correlation) };
   if (error instanceof IncidentCreationForbiddenError || error instanceof RecurrenceDecisionForbiddenError || error instanceof TriageForbiddenError || error instanceof Error && error.message === "forbidden") return { status: 403, body: apiError("forbidden", "Request is forbidden", correlation) };
   if (error instanceof RecurrenceDecisionNotFoundError || error instanceof Error && error.message === "not-found") return { status: 404, body: apiError("not-found", "Resource not found", correlation) };
+  const statusCode = record(error)?.statusCode;
+  if (typeof statusCode === "number" && statusCode === 429) return { status: 429, body: apiError("rate-limit-exceeded", "Too many requests", correlation) };
   return { status: 503, body: apiError("temporarily-unavailable", "Service is temporarily unavailable", correlation) };
 }
 

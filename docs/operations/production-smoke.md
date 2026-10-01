@@ -8,7 +8,7 @@ Use this smoke only to verify the repository's production API image against an i
 2. Choose unused loopback ports from 1024 through 65535.
 3. Run `pnpm smoke:production` from the repository root.
 
-The command creates the fixed `shelfops-production-smoke` Compose project. It starts PostgreSQL, applies migrations 001-011 from the host, builds and starts the production API image, verifies `/health` and `/ready`, restarts only the API, proves the database marker persisted, confirms migrations are a no-op, and removes the containers, network, and named volume.
+The command creates the fixed `shelfops-production-smoke` Compose project. It starts PostgreSQL, applies every repository migration from the host, builds and starts the production API image, verifies `/health` and `/ready`, restarts only the API, proves the database marker persisted, confirms migrations are a no-op, and removes the containers, network, and named volume.
 
 ## Safety contract
 
