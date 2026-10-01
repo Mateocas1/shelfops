@@ -157,6 +157,7 @@ module "compute" {
   name                   = local.name
   region                 = var.aws_region
   container_image        = var.container_image
+  one_off_image          = var.migrate_image != "" ? var.migrate_image : null
   container_cpu          = var.container_cpu
   container_memory       = var.container_memory
   desired_count          = var.desired_count

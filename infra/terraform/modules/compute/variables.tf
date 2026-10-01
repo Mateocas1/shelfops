@@ -36,6 +36,17 @@ variable "container_memory" {
   default     = 512
 }
 
+variable "one_off_image" {
+  description = "Image for the one-off migrate/seed-tenant task. Defaults to container_image."
+  type        = string
+  default     = null
+
+  validation {
+    condition     = var.one_off_image == null || can(regex("^[0-9]{12}\\.dkr\\.ecr\\.[a-z0-9-]+\\.amazonaws\\.com/", var.one_off_image))
+    error_message = "one_off_image must be a full ECR image reference when set."
+  }
+}
+
 variable "cpu_architecture" {
   description = "Fargate CPU architecture. The image is built for amd64."
   type        = string

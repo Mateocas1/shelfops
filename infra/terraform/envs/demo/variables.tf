@@ -52,6 +52,12 @@ variable "container_image" {
   default     = ""
 }
 
+variable "migrate_image" {
+  description = "Full ECR image reference for the one-off migrate/seed-tenant task. Defaults to container_image."
+  type        = string
+  default     = ""
+}
+
 variable "container_cpu" {
   description = "Fargate task CPU units."
   type        = number
