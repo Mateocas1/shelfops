@@ -1,0 +1,63 @@
+name: Infra
+
+on:
+  push:
+    paths:
+      - "infra/**"
+      - ".github/workflows/infra.yml"
+  pull_request:
+    paths:
+      - "infra/**"
+      - ".github/workflows/infra.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: infra-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  terraform:
+    name: Terraform static checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Install Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.16.4
+      - name: Install TFLint
+        uses: terraform-linters/setup-tflint@v4
+        with:
+          tflint_version: v0.55.0
+      - name: Reject unformatted Terraform
+        run: terraform fmt -check -recursive
+        working-directory: infra/terraform
+      - name: Init demo root without a backend
+        run: terraform init -backend=false -input=false
+        working-directory: infra/terraform/envs/demo
+      - name: Validate demo root
+        run: terraform validate
+        working-directory: infra/terraform/envs/demo
+      - name: Init bootstrap root without a backend
+        run: terraform init -backend=false -input=false
+        working-directory: infra/terraform/bootstrap
+      - name: Validate bootstrap root
+        run: terraform validate
+        working-directory: infra/terraform/bootstrap
+      - name: TFLint
+        run: |
+          tflint --init
+          tflint --recursive
+        working-directory: infra/terraform
+      - name: Checkov
+        uses: bridgecrewio/checkov-action@v12
+        with:
+          directory: infra/terraform
+          framework: terraform
+          quiet: true
+          soft_fail: false

@@ -1,0 +1,11 @@
+# Apply only the LocalStack free-plan subset:
+#   terraform init -backend=false
+#   terraform apply -var-file=localstack.tfvars
+# ECR, ECS, RDS, ELBv2 and CloudFront are not available on the free plan and
+# are disabled by `localstack = true`.
+localstack      = true
+enable_network  = false
+enable_database = false
+enable_compute  = false
+enable_ingress  = false
+enable_budget   = false

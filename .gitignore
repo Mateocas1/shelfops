@@ -34,3 +34,11 @@ temp/
 # Playwright outputs
 test-results/
 playwright-report/
+
+# Terraform local state and plugin cache (state lives in the S3 backend)
+*.tfstate
+*.tfstate.*
+.terraform/
+*.tfplan
+infra/terraform/envs/*/backend.hcl
+infra/terraform/envs/*/terraform.tfvars
