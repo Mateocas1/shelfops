@@ -3,19 +3,17 @@ import { createServer } from "node:net";
 import { resolve } from "node:path";
 
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from "@testcontainers/postgresql";
-import { Pool } from "pg";
+import { Client } from "pg";
 
 import { startApi } from "../apps/api/src/startup.js";
 import { migrate } from "./migrate.js";
+import { seedTenant, type TenantSeedResult } from "./seed-tenant.js";
 
 const image = "postgres:16.10-alpine@sha256:029660641a0cfc575b14f336ba448fb8a75fd595d42e1fa316b9fb4378742297";
 const ids = {
-  organization: "00000000-0000-7000-8000-000000000001",
-  store: "00000000-0000-7000-8000-000000000101",
   sector: "00000000-0000-7000-8000-000000000102",
   location: "00000000-0000-7000-8000-000000000103",
   product: "00000000-0000-7000-8000-000000000106",
-  user: "00000000-0000-7000-8000-000000000104",
   session: "00000000-0000-7000-8000-000000000105"
 } as const;
 const sessionId = "demo-session-credential-0000000000000000000";
@@ -34,25 +32,20 @@ async function freePort(): Promise<number> {
   return address.port;
 }
 
-async function fixture(pool: Pool): Promise<void> {
-  await pool.query("INSERT INTO stores(id,organization_id,name) VALUES($1,$2,'Portfolio Demo Store')", [ids.store, ids.organization]);
-  await pool.query("INSERT INTO sectors(id,organization_id,store_id,name) VALUES($1,$2,$3,'Grocery')", [ids.sector, ids.organization, ids.store]);
-  await pool.query("INSERT INTO locations(id,organization_id,store_id,sector_id,name) VALUES($1,$2,$3,$4,'Aisle 7')", [ids.location, ids.organization, ids.store, ids.sector]);
-  await pool.query("INSERT INTO products(id,organization_id,name) VALUES($1,$2,'Simulated Product')", [ids.product, ids.organization]);
-  await pool.query("INSERT INTO product_store_availability(product_id,organization_id,store_id) VALUES($1,$2,$3)", [ids.product, ids.organization, ids.store]);
-  await pool.query("INSERT INTO users(id,organization_id,name) VALUES($1,$2,'Simulated Reviewer')", [ids.user, ids.organization]);
-  await pool.query("INSERT INTO user_roles(user_id,role) VALUES($1,'supervisor')", [ids.user]);
-  await pool.query("INSERT INTO user_store_scopes(user_id,store_id) VALUES($1,$2)", [ids.user, ids.store]);
-  await pool.query("INSERT INTO user_sector_scopes(user_id,sector_id) VALUES($1,$2)", [ids.user, ids.sector]);
-  await pool.query("INSERT INTO category_responsibilities(user_id,category_key) VALUES($1,'out-of-stock')", [ids.user]);
-  await pool.query("INSERT INTO action_grants(user_id,action,role) VALUES($1,'triage','supervisor')", [ids.user]);
-  await pool.query("INSERT INTO oidc_identity_mappings(issuer,subject,user_id) VALUES('https://demo.shelfops.invalid','simulated-reviewer',$1)", [ids.user]);
-  await pool.query("INSERT INTO sessions(id,session_id_hash,csrf_token_hash,user_id,expires_at) VALUES($1,$2,$3,$4,now()+interval '30 minutes')", [ids.session, digest(sessionId), digest(csrfToken), ids.user]);
+async function fixture(client: Client, tenant: TenantSeedResult): Promise<void> {
+  await client.query("INSERT INTO sectors(id,organization_id,store_id,name) VALUES($1,$2,$3,'Grocery')", [ids.sector, tenant.organizationId, tenant.storeId]);
+  await client.query("INSERT INTO locations(id,organization_id,store_id,sector_id,name) VALUES($1,$2,$3,$4,'Aisle 7')", [ids.location, tenant.organizationId, tenant.storeId, ids.sector]);
+  await client.query("INSERT INTO products(id,organization_id,name) VALUES($1,$2,'Simulated Product')", [ids.product, tenant.organizationId]);
+  await client.query("INSERT INTO product_store_availability(product_id,organization_id,store_id) VALUES($1,$2,$3)", [ids.product, tenant.organizationId, tenant.storeId]);
+  await client.query("INSERT INTO user_sector_scopes(user_id,sector_id) VALUES($1,$2)", [tenant.userId, ids.sector]);
+  await client.query("INSERT INTO category_responsibilities(user_id,category_key) VALUES($1,'out-of-stock')", [tenant.userId]);
+  await client.query("INSERT INTO action_grants(user_id,action,role) VALUES($1,'triage','supervisor')", [tenant.userId]);
+  await client.query("INSERT INTO sessions(id,session_id_hash,csrf_token_hash,user_id,expires_at) VALUES($1,$2,$3,$4,now()+interval '30 minutes')", [ids.session, digest(sessionId), digest(csrfToken), tenant.userId]);
 }
 
 async function main(): Promise<void> {
   let container: StartedPostgreSqlContainer | undefined;
-  let pool: Pool | undefined;
+  let client: Client | undefined;
   let app: Awaited<ReturnType<typeof startApi>> | undefined;
   const previousDatabaseUrl = process.env.DATABASE_URL;
   try {
@@ -61,9 +54,22 @@ async function main(): Promise<void> {
     process.env.DATABASE_URL = container.getConnectionUri();
     const migration = await migrate(process.env.DATABASE_URL, resolve("migrations"), "apply");
     step("migrate", `version=${migration.current} applied=${migration.applied.length}`);
-    pool = new Pool({ connectionString: process.env.DATABASE_URL });
-    await fixture(pool);
-    step("fixture", `organization=${ids.organization} store=${ids.store} reviewer=${ids.user} deterministicAssignees=1`);
+    client = new Client({ connectionString: process.env.DATABASE_URL });
+    await client.connect();
+    const tenant = await seedTenant(client, {
+      organizationSlug: "simulated-shelfops",
+      organizationName: "Simulated ShelfOps Organization",
+      storeCode: "portfolio-demo-store",
+      storeName: "Portfolio Demo Store",
+      userEmail: "simulated-reviewer@demo.shelfops.invalid",
+      userName: "Simulated Reviewer",
+      userRole: "supervisor",
+      oidcIssuer: "https://demo.shelfops.invalid",
+      oidcSubject: "simulated-reviewer"
+    });
+    step("seed", `organization=${tenant.organizationId} store=${tenant.storeId} reviewer=${tenant.userId} status=${tenant.status}`);
+    await fixture(client, tenant);
+    step("fixture", `store=${tenant.storeId} reviewer=${tenant.userId} deterministicAssignees=1`);
 
     const port = await freePort();
     app = await startApi({ port: String(port), host: "127.0.0.1", cursorSecret: "portfolio-demo-cursor-secret-32-bytes", metricsCredential: "portfolio-demo-metrics-token-32-bytes", logger: false });
@@ -78,7 +84,7 @@ async function main(): Promise<void> {
 
     const me = await call("session", "/api/v1/me");
     step("1 session", `user=${me.id} roles=${me.roleScopes.map((scope: any) => scope.role).join(",")} grants=${me.grants.map((grant: any) => grant.action).join(",")}`);
-    const created = await call("create incident", "/api/v1/incidents", { method: "POST", body: JSON.stringify({ storeId: ids.store, sectorId: ids.sector, locationId: ids.location, productId: ids.product, category: "out-of-stock", severity: "high", title: "Empty shelf in aisle 7", description: "Reviewer observed the last unit was sold.", occurredAt: new Date().toISOString(), textEvidence: "Shelf and backroom were checked.", idempotencyKey: "portfolio-demo-create" }) });
+    const created = await call("create incident", "/api/v1/incidents", { method: "POST", body: JSON.stringify({ storeId: tenant.storeId, sectorId: ids.sector, locationId: ids.location, productId: ids.product, category: "out-of-stock", severity: "high", title: "Empty shelf in aisle 7", description: "Reviewer observed the last unit was sold.", occurredAt: new Date().toISOString(), textEvidence: "Shelf and backroom were checked.", idempotencyKey: "portfolio-demo-create" }) });
     step("2 create", `incident=${created.incidentId} state=${created.state} version=${created.version} correlation=${created.correlationId}`);
     const listed = await call("list incidents", "/api/v1/incidents");
     step("3 list", `count=${listed.items.length} incident=${listed.items[0].id} state=${listed.items[0].state} correlation=${listed.correlationId}`);
@@ -104,7 +110,7 @@ async function main(): Promise<void> {
     throw new Error(`${detail}. Prerequisites: Node >=22.19, pnpm 11.11, and a running Docker daemon able to pull PostgreSQL 16.`);
   } finally {
     await app?.close().catch(() => undefined);
-    await pool?.end().catch(() => undefined);
+    await client?.end().catch(() => undefined);
     await container?.stop().catch(() => undefined);
     if (previousDatabaseUrl === undefined) delete process.env.DATABASE_URL; else process.env.DATABASE_URL = previousDatabaseUrl;
     step("cleanup", `api=stopped database=stopped temporaryResources=removed listener=closed`);

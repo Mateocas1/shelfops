@@ -26,6 +26,7 @@ ENV NODE_ENV=production
 WORKDIR /app
 COPY --from=build --chown=node:node /app/deploy ./
 COPY --from=build --chown=node:node /app/dist/migrate/migrate.js ./scripts/migrate.cjs
+COPY --from=build --chown=node:node /app/dist/migrate/seed-tenant.js ./scripts/seed-tenant.cjs
 COPY --from=build --chown=node:node /app/migrations ./migrations
 COPY --from=ca-bundle --chown=node:node /global-bundle.pem ./certs/global-bundle.pem
 USER node
