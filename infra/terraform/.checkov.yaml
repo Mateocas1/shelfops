@@ -1,0 +1,24 @@
+# Deliberate, documented skips for the ephemeral ~USD 0 demo design.
+# Every entry is a conscious cost or architecture decision, not an oversight.
+framework:
+  - terraform
+skip-check:
+  - CKV_AWS_149   # Secrets Manager: AWS-managed KMS key is free; a CMK is not
+  - CKV2_AWS_57   # Secret rotation needs a Lambda and is out of scope for a demo
+  - CKV_AWS_65    # ECS Container Insights is a paid feature
+  - CKV_AWS_118   # RDS enhanced monitoring has no free tier
+  - CKV_AWS_158   # CloudWatch Logs KMS encryption needs a paid CMK
+  - CKV_AWS_394   # Availability zones come from state=available; fine for a demo
+  - CKV_AWS_374   # CloudFront geo restriction is intentionally "none" (global access)
+  - CKV_AWS_336   # The image needs a writable root; Fargate has no tmpfs
+  - CKV_AWS_310   # Single CloudFront origin by design (no failover cost)
+  - CKV_AWS_174   # The default CloudFront certificate already negotiates TLSv1.2+
+  - CKV_AWS_103   # The origin listener is HTTP; CloudFront terminates viewer TLS
+  - CKV_AWS_260   # False positive: ALB ingress is a CloudFront managed prefix list, not 0.0.0.0/0
+  - CKV2_AWS_5    # False positive: the security groups are attached by the ALB and ECS service
+  - CKV2_AWS_62   # The state bucket needs no event notifications
+  - CKV2_AWS_47   # CloudFront WAF (Log4j AMR) is a paid feature
+  - CKV2_AWS_42   # No domain purchase: the free *.cloudfront.net certificate is used
+  - CKV2_AWS_28   # ALB WAF is a paid feature; the ALB is restricted to CloudFront by prefix list
+  - CKV2_AWS_20   # CloudFront performs the HTTP->HTTPS viewer redirect; the ALB hop is HTTP
+  - CKV2_AWS_11   # VPC flow logs add CloudWatch ingestion cost

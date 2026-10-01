@@ -1,0 +1,6 @@
+# Copy to backend.hcl (never commit the filled file) and run:
+#   terraform init -backend-config=backend.hcl
+bucket       = "shelfops-tfstate-REPLACE-WITH-ACCOUNT-ID"
+region       = "us-east-1"
+encrypt      = true
+use_lockfile = true
