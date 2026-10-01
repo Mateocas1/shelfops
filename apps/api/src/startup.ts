@@ -8,6 +8,7 @@ import { PostgresTriageAuthorityExecutor } from "@shelfops/infrastructure/triage
 import { PostgresConfigurationExecutor } from "@shelfops/infrastructure/reference-data/postgres-configuration-executor";
 import { PostgresSlaPolicyExecutor } from "@shelfops/infrastructure/postgres/sla-policy-executor";
 import { PostgresRecurrenceAuthorityExecutor } from "@shelfops/infrastructure/recurrence/postgres-recurrence-authority-executor";
+import { readDatabaseConnectionConfig } from "@shelfops/infrastructure/postgres/database-config";
 import type { ConfigurationExecutor } from "@shelfops/application/ports/configuration-executor";
 import type { IdentityProvider } from "@shelfops/application/ports/identity-provider";
 
@@ -118,7 +119,13 @@ export async function startApi(options: StartupOptions = {}): Promise<FastifyIns
       const connectionString = process.env.DATABASE_URL?.trim();
       if (!connectionString) throw new Error("DATABASE_URL must be nonblank");
 
-      const pool = (options.createPool ?? ((value) => new Pool({ connectionString: value, connectionTimeoutMillis: 1_000 })))(connectionString);
+      let pool: ApiPool;
+      if (options.createPool) {
+        pool = options.createPool(connectionString);
+      } else {
+        const databaseConfig = await readDatabaseConnectionConfig(process.env);
+        pool = new Pool({ connectionString, connectionTimeoutMillis: 1_000, ...databaseConfig });
+      }
       pool.on?.("error", (error) => logger?.error("dependency.failed", error));
       closeOwnedResource = closeOnce(pool);
       dependencyProbe = async () => { await pool.query("SELECT 1"); };
