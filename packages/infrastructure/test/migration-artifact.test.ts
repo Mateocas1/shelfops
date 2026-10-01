@@ -31,14 +31,14 @@ describe("compiled migration artifact", () => {
   it("applies every migration against a fresh database without tsx", () => {
     const result = JSON.parse(runArtifact({ DATABASE_URL: container.getConnectionUri() }));
 
-    expect(result).toMatchObject({ status: "current", current: 12, pending: [], drift: [] });
-    expect(result.applied).toHaveLength(12);
+    expect(result).toMatchObject({ status: "current", current: 13, pending: [], drift: [] });
+    expect(result.applied).toHaveLength(13);
   }, 120_000);
 
   it("reports current on a repeated status run without reapplying", () => {
     const result = JSON.parse(runArtifact({ DATABASE_URL: container.getConnectionUri() }, ["status"]));
 
-    expect(result).toEqual({ status: "current", current: 12, pending: [], applied: [], drift: [] });
+    expect(result).toEqual({ status: "current", current: 13, pending: [], applied: [], drift: [] });
   }, 120_000);
 
   it("fails fast with a diagnostic for an invalid DATABASE_SSL_MODE", () => {

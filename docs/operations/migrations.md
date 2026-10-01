@@ -20,7 +20,7 @@ On a deployment host without the repository, build and run the `migrate` image t
 Both commands write one machine-readable JSON object. A current database resembles:
 
 ```json
-{"status":"current","current":12,"pending":[],"applied":[],"drift":[]}
+{"status":"current","current":13,"pending":[],"applied":[],"drift":[]}
 ```
 
 `pnpm migrate` lists newly applied filenames in `applied`. `pnpm migrate:status` reports unapplied filenames in `pending` with `"status":"pending"` and does not execute migration SQL. Status exits nonzero if PostgreSQL is unavailable, another runner owns the migration lock, or drift is detected.
