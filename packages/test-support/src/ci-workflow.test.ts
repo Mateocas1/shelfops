@@ -54,3 +54,65 @@ describe("CI workflow", () => {
     ]) expect(docs).toMatch(guidance);
   });
 });
+
+describe("AWS delivery workflows", () => {
+  const workflows = ["deploy.yml", "infra-plan.yml", "infra-apply.yml"] as const;
+  const read = (name: string) => readFile(`.github/workflows/${name}`, "utf8");
+
+  it("pins every third-party action to a commit SHA", async () => {
+    for (const name of workflows) {
+      const workflow = await read(name);
+      const actions = [...workflow.matchAll(/uses:\s*([^\s#]+)/g)].map((match) => match[1]);
+      expect(actions.length).toBeGreaterThan(0);
+      for (const action of actions) expect(action, `${name}: ${action}`).toMatch(/^[\w.-]+\/[\w.-]+@[0-9a-f]{40}$/);
+    }
+  });
+
+  it("deploys on main with OIDC and is a no-op when the environment is not deployed", async () => {
+    const workflow = await read("deploy.yml");
+
+    expect(workflow).toMatch(/branches:\s*\n\s+- main/);
+    expect(workflow).toMatch(/id-token:\s*write/);
+    expect(workflow).toMatch(/group: deploy-demo/);
+    expect(workflow).toContain("aws-actions/configure-aws-credentials@");
+    expect(workflow).toContain("--target runtime");
+    expect(workflow).toContain("--target migrate");
+    expect(workflow).toContain("aws ecs run-task");
+    expect(workflow).toContain("aws ecs wait tasks-stopped");
+    expect(workflow).toContain("aws ecs update-service");
+    expect(workflow).toContain("aws ecs wait services-stable");
+    expect(workflow).toContain("SMOKE_URL");
+    expect(workflow).toMatch(/Environment not deployed/);
+    expect(workflow).not.toMatch(/secrets\.|AWS_ACCESS_KEY_ID|aws-access-key-id/i);
+  });
+
+  it("plans infra pull requests into a single sticky comment", async () => {
+    const workflow = await read("infra-plan.yml");
+
+    expect(workflow).toMatch(/pull_request:[\s\S]*paths:[\s\S]*- "infra\/\*\*"/);
+    expect(workflow).toMatch(/pull-requests:\s*write/);
+    expect(workflow).toMatch(/id-token:\s*write/);
+    expect(workflow).toContain("<!-- shelfops-terraform-plan -->");
+    expect(workflow).toContain("github.rest.issues.updateComment");
+    expect(workflow).toContain("aws-actions/configure-aws-credentials@");
+  });
+
+  it("gates apply and destroy behind a manual, protected dispatch", async () => {
+    const workflow = await read("infra-apply.yml");
+
+    expect(workflow).toMatch(/workflow_dispatch:/);
+    expect(workflow).toMatch(/type:\s*choice/);
+    expect(workflow).toMatch(/environment:\s*demo-apply/);
+    expect(workflow).toContain("terraform apply");
+    expect(workflow).toContain("terraform destroy");
+    expect(workflow).toMatch(/confirm/i);
+  });
+
+  it("never embeds an AWS account id or access key", async () => {
+    for (const name of workflows) {
+      const workflow = await read(name);
+      expect(workflow).not.toMatch(/AKIA[0-9A-Z]{16}/);
+      expect(workflow).not.toMatch(/arn:aws:[^\s"']*:[0-9]{12}:/);
+    }
+  });
+});

@@ -1,0 +1,149 @@
+name: Deploy
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-demo
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Build, migrate and roll the demo
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: demo-deploy
+
+    permissions:
+      contents: read
+      id-token: write
+
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      AWS_DEPLOY_ROLE_ARN: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+      ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY }}
+      ECS_CLUSTER: ${{ vars.ECS_CLUSTER }}
+      ECS_SERVICE: ${{ vars.ECS_SERVICE }}
+      API_TASK_DEFINITION: ${{ vars.API_TASK_DEFINITION }}
+      ONE_OFF_TASK_DEFINITION: ${{ vars.ONE_OFF_TASK_DEFINITION }}
+      ECS_PUBLIC_SUBNETS: ${{ vars.ECS_PUBLIC_SUBNETS }}
+      ECS_TASK_SECURITY_GROUP: ${{ vars.ECS_TASK_SECURITY_GROUP }}
+      SMOKE_URL: ${{ vars.SMOKE_URL }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Check whether the environment is configured
+        id: guard
+        run: |
+          if [ -z "${AWS_DEPLOY_ROLE_ARN}" ]; then
+            echo "deployed=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Environment not deployed: the AWS_DEPLOY_ROLE_ARN variable is not set."
+          else
+            echo "deployed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Configure AWS credentials
+        if: steps.guard.outputs.deployed == 'true'
+        uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502 # v4.0.2
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+          role-session-name: shelfops-deploy-${{ github.run_id }}
+
+      - name: Check whether the ECS service exists
+        id: service
+        if: steps.guard.outputs.deployed == 'true'
+        run: |
+          set -euo pipefail
+          count=$(aws ecs describe-services --cluster "${ECS_CLUSTER}" --services "${ECS_SERVICE}" --query 'length(services)' --output text)
+          if [ "${count}" = "0" ]; then
+            echo "deployed=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Environment not deployed: ECS service ${ECS_SERVICE} was not found in ${ECS_CLUSTER}."
+          else
+            echo "deployed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build and push the runtime and migrate images
+        if: steps.service.outputs.deployed == 'true'
+        run: |
+          set -euo pipefail
+          image="${ECR_REPOSITORY}:${GITHUB_SHA}"
+          migrate_image="${ECR_REPOSITORY}:${GITHUB_SHA}-migrate"
+          registry="${ECR_REPOSITORY%%/*}"
+          aws ecr get-login-password --region "${AWS_REGION}" | docker login --username AWS --password-stdin "${registry}"
+          docker build --platform linux/amd64 --file Dockerfile.api --target runtime --tag "${image}" .
+          docker build --platform linux/amd64 --file Dockerfile.api --target migrate --tag "${migrate_image}" .
+          docker push "${image}"
+          docker push "${migrate_image}"
+
+      - name: Register task definition revisions
+        id: register
+        if: steps.service.outputs.deployed == 'true'
+        run: |
+          set -euo pipefail
+          register() {
+            local family="$1" image="$2"
+            aws ecs describe-task-definition --task-definition "${family}" --query 'taskDefinition' \
+              | jq --arg image "${image}" 'del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy, .deregisteredAt, .enableFaultInjection) | .containerDefinitions[0].image = $image' > /tmp/task-definition.json
+            aws ecs register-task-definition --cli-input-json file:///tmp/task-definition.json --query 'taskDefinition.taskDefinitionArn' --output text
+          }
+          api=$(register "${API_TASK_DEFINITION}" "${ECR_REPOSITORY}:${GITHUB_SHA}")
+          one_off=$(register "${ONE_OFF_TASK_DEFINITION}" "${ECR_REPOSITORY}:${GITHUB_SHA}-migrate")
+          if [ -z "${api}" ] || [ -z "${one_off}" ]; then
+            echo "::error::Could not register the new task definition revisions."
+            exit 1
+          fi
+          echo "api=${api}" >> "$GITHUB_OUTPUT"
+          echo "one_off=${one_off}" >> "$GITHUB_OUTPUT"
+
+      - name: Run the migration task and wait for it
+        if: steps.service.outputs.deployed == 'true'
+        env:
+          ONE_OFF_TASK_DEFINITION_ARN: ${{ steps.register.outputs.one_off }}
+        run: |
+          set -euo pipefail
+          network="awsvpcConfiguration={subnets=[${ECS_PUBLIC_SUBNETS}],securityGroups=[${ECS_TASK_SECURITY_GROUP}],assignPublicIp=ENABLED}"
+          run=$(aws ecs run-task --cluster "${ECS_CLUSTER}" --task-definition "${ONE_OFF_TASK_DEFINITION_ARN}" --launch-type FARGATE --network-configuration "${network}" --output json)
+          task=$(echo "${run}" | jq -r '.tasks[0].taskArn // empty')
+          if [ -z "${task}" ]; then
+            echo "${run}" | jq '.failures'
+            echo "::error::run-task did not start the migration task."
+            exit 1
+          fi
+          aws ecs wait tasks-stopped --cluster "${ECS_CLUSTER}" --tasks "${task}"
+          stopped=$(aws ecs describe-tasks --cluster "${ECS_CLUSTER}" --tasks "${task}" --output json)
+          exit_code=$(echo "${stopped}" | jq -r '.tasks[0].containers[0].exitCode // "unknown"')
+          reason=$(echo "${stopped}" | jq -r '.tasks[0].stoppedReason // "unknown"')
+          echo "migration task ${task} exit=${exit_code} reason=${reason}"
+          if [ "${exit_code}" != "0" ]; then
+            echo "::error::Migration task failed with exit code ${exit_code}."
+            exit 1
+          fi
+
+      - name: Roll the ECS service and wait for stability
+        if: steps.service.outputs.deployed == 'true'
+        env:
+          API_TASK_DEFINITION_ARN: ${{ steps.register.outputs.api }}
+        run: |
+          set -euo pipefail
+          aws ecs update-service --cluster "${ECS_CLUSTER}" --service "${ECS_SERVICE}" --task-definition "${API_TASK_DEFINITION_ARN}" --query 'service.serviceName' --output text
+          aws ecs wait services-stable --cluster "${ECS_CLUSTER}" --services "${ECS_SERVICE}"
+
+      - name: Smoke test /ready through CloudFront
+        if: steps.service.outputs.deployed == 'true'
+        run: |
+          set -euo pipefail
+          if [ -z "${SMOKE_URL}" ]; then
+            echo "::warning::SMOKE_URL is not set; skipping the smoke test."
+            exit 0
+          fi
+          curl --fail --silent --show-error --retry 10 --retry-delay 6 --retry-all-errors "${SMOKE_URL}"
+          echo

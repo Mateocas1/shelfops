@@ -230,14 +230,89 @@ The demo can create a USD 1 monthly budget (`enable_budget = true`,
 so leave `enable_budget = false` to avoid a duplicate; the module is optional and
 skipped automatically under LocalStack.
 
+## CI/CD
+
+GitHub Actions authenticates to AWS with **OIDC: no long-lived access keys are
+stored in GitHub**. The demo root creates the OIDC provider and three roles
+(`enable_github_oidc`, default true), each trusted for exactly one subject:
+
+| Role | OIDC subject | Purpose |
+| --- | --- | --- |
+| `*-github-plan` | `repo:Mateocas1/shelfops:pull_request` | Read-only `terraform plan` on infra PRs + state lock |
+| `*-github-deploy` | `repo:Mateocas1/shelfops:ref:refs/heads/main` | Push images, register task definitions, run the migration task, roll the service |
+| `*-github-apply` | `repo:Mateocas1/shelfops:environment:demo-apply` | Manual `terraform apply`/`destroy`, gated by a protected environment |
+
+No thumbprint is configured: since 2023-07-06 AWS validates GitHub's IdP against
+its own trusted root CAs instead of a pinned thumbprint
+([GitHub changelog](https://github.blog/changelog/2023-07-13-github-actions-oidc-integration-with-aws-no-longer-requires-pinning-of-intermediate-tls-certificates/),
+[terraform-provider-aws#32480](https://github.com/hashicorp/terraform-provider-aws/issues/32480)).
+
+### One-time setup
+
+1. Apply the stack (this also creates the OIDC provider and roles):
+   ```sh
+   cd infra/terraform/envs/demo
+   terraform init -backend-config=backend.hcl
+   terraform apply -var "state_bucket_name=<your-state-bucket>" -var "container_image=<ecr>:bootstrap"
+   ```
+   If the account already has a GitHub OIDC provider, apply with
+   `-var manage_oidc_provider=false -var oidc_provider_arn=<existing-arn>`.
+2. Create the GitHub **variables** below (Settings → Secrets and variables →
+   Actions → Variables). They are not secrets: no AWS keys are stored.
+3. Create two GitHub **environments**: `demo-deploy` (no required reviewers) and
+   `demo-apply` with **required reviewers** so apply/destroy needs a human
+   approval. The name `demo-apply` must match `github_environment_name`.
+4. Push to `main`: the Deploy workflow builds both images, runs migrations, rolls
+   the service and smokes `/ready`. Open an infra PR: the plan workflow posts one
+   sticky comment. Apply/destroy only through the **Infra apply** workflow dispatch.
+
+### Required GitHub variables
+
+| Variable | Example | Notes |
+| --- | --- | --- |
+| `AWS_REGION` | `us-east-1` | Region of the stack |
+| `AWS_DEPLOY_ROLE_ARN` | `terraform output -raw github_deploy_role_arn` | Deploy workflow |
+| `AWS_PLAN_ROLE_ARN` | `terraform output -raw github_plan_role_arn` | Plan workflow |
+| `AWS_APPLY_ROLE_ARN` | `terraform output -raw github_apply_role_arn` | Apply/destroy workflow |
+| `TF_STATE_BUCKET` | `shelfops-tfstate-<account>` | Same bucket as the S3 backend |
+| `TF_CONTAINER_IMAGE` | `<ecr>:<current-sha>` | Current API image, keeps `plan` meaningful |
+| `TF_MIGRATE_IMAGE` | `<ecr>:<current-sha>-migrate` | Optional; defaults to the API image |
+| `ECR_REPOSITORY` | `<account>.dkr.ecr.<region>.amazonaws.com/shelfops-demo-api` | Full repository URL |
+| `ECS_CLUSTER` | `shelfops-demo-cluster` | |
+| `ECS_SERVICE` | `shelfops-demo-api` | |
+| `API_TASK_DEFINITION` | `shelfops-demo-api` | Family name |
+| `ONE_OFF_TASK_DEFINITION` | `shelfops-demo-one-off` | Family name (migrate / seed-tenant) |
+| `ECS_PUBLIC_SUBNETS` | `subnet-a,subnet-b` | Comma-separated, no spaces |
+| `ECS_TASK_SECURITY_GROUP` | `sg-...` | Task security group |
+| `SMOKE_URL` | `https://<cloudfront>/ready` | CloudFront readiness URL |
+| `ALARM_EMAIL` | `you@example.com` | Optional |
+| `TF_MANAGE_OIDC_PROVIDER` | `false` | Optional; set when the provider already exists |
+| `TF_OIDC_PROVIDER_ARN` | `arn:aws:iam::...:oidc-provider/token.actions.githubusercontent.com` | Optional; pairs with the previous |
+
+### Behaviour
+
+- **Ephemeral no-op:** if `AWS_DEPLOY_ROLE_ARN` is unset, or `describe-services`
+  finds no service, the Deploy workflow logs a notice and exits 0.
+- Deploy builds the `runtime` and `migrate` Docker targets (two different images:
+  the migrate image carries `scripts/migrate.cjs` and `migrations/`), registers new
+  task-definition revisions from the current family, runs the one-off migration
+  task and **fails on a non-zero exit code**, then waits for `services-stable`
+  before the `SMOKE_URL` check.
+- `apply`/`destroy` are never automatic; they require a `workflow_dispatch` input
+  plus the `demo-apply` environment approval.
+
 ## Verification status
 
 - `terraform fmt -check -recursive`, `terraform validate` (both roots), `tflint`
   and `checkov` are green and run in `.github/workflows/infra.yml` without AWS
   credentials. Checkov's deliberate cost skips are documented in
   `infra/terraform/.checkov.yaml`.
-- The LocalStack subset applies and destroys cleanly (see
-  [LocalStack findings](#localstack-findings)).
+- All five workflows pass `actionlint`; the four AWS workflows are covered by
+  `packages/test-support/src/ci-workflow.test.ts` (SHA-pinned actions, OIDC, no
+  stored secrets, sticky plan comment, protected dispatch).
+- The LocalStack subset applies and destroys cleanly, including the GitHub OIDC
+  module (provider + three roles with the expected `sub` conditions); see
+  [LocalStack findings](#localstack-findings).
 - **Not yet verified against real AWS:** CloudFront/ALB wiring, ECS task
   startup, RDS TLS `verify-full` against the real RDS endpoint, alarm email
   delivery, and the full apply under 20 minutes. Those require a human-approved

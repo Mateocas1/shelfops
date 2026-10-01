@@ -176,7 +176,7 @@ resource "aws_ecs_task_definition" "one_off" {
   container_definitions = jsonencode([
     {
       name             = "one-off"
-      image            = var.container_image
+      image            = coalesce(var.one_off_image, var.container_image)
       essential        = true
       command          = var.one_off_command
       environment      = local.one_off_environment
