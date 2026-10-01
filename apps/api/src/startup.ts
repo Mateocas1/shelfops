@@ -13,6 +13,7 @@ import type { ConfigurationExecutor } from "@shelfops/application/ports/configur
 import type { IdentityProvider } from "@shelfops/application/ports/identity-provider";
 
 import { buildApi, type BuildApiOptions } from "./app.js";
+import { parseCorsSettings, parseRateLimitSettings, parseTrustProxy, type CorsSettings, type RateLimitSettings } from "./config.js";
 import { createLifecycle, type Lifecycle } from "./lifecycle.js";
 import { createApiLogger, validateLogLevel, type ApiLogger } from "./logging.js";
 import { createMetrics, validateMetricsCredential, type PoolDiagnostics } from "./metrics.js";
@@ -46,6 +47,9 @@ export interface StartupOptions {
   oidcEnvironment?: Readonly<Record<string, string | undefined>>;
   allowOidcLoopbackHttp?: boolean;
   createOidcProtocol?: typeof createOidcProtocol;
+  trustProxy?: boolean;
+  rateLimit?: RateLimitSettings;
+  cors?: CorsSettings;
 }
 
 interface ApiPool {
@@ -99,6 +103,9 @@ export async function startApi(options: StartupOptions = {}): Promise<FastifyIns
     validateLogLevel(options.logLevel ?? process.env.LOG_LEVEL);
     if (options.logger !== false) logger ??= createApiLogger({ environment: process.env.NODE_ENV ?? "production", release: process.env.RELEASE ?? process.env.npm_package_version ?? "unknown", level: options.logLevel ?? process.env.LOG_LEVEL });
     const cursorSecret = requireCursorSecret(options.cursorSecret ?? process.env.CURSOR_SECRET);
+    const trustProxy = options.trustProxy ?? parseTrustProxy(process.env.TRUST_PROXY, process.env.NODE_ENV === "production");
+    const rateLimit = options.rateLimit ?? parseRateLimitSettings(process.env);
+    const cors = options.cors ?? parseCorsSettings(process.env);
     const oidcConfig = readOidcConfig(options.oidcEnvironment ?? process.env, { allowLoopbackHttp: options.allowOidcLoopbackHttp });
     const metricsCredential = validateMetricsCredential(options.metricsCredential ?? process.env.METRICS_BEARER_TOKEN ?? (process.env.NODE_ENV === "test" ? TEST_METRICS_CREDENTIAL : undefined));
     let configurationExecutor = options.configurationExecutor;
@@ -157,7 +164,7 @@ export async function startApi(options: StartupOptions = {}): Promise<FastifyIns
 
     const readiness = { ...lifecycle, probe: dependencyProbe };
     const metrics = createMetrics({ credential: metricsCredential, environment: process.env.NODE_ENV ?? "production", release: process.env.RELEASE ?? process.env.npm_package_version ?? "unknown", readiness, pool: metricsDiagnostics });
-    app = await (options.buildApi ?? buildApi)({ configurationExecutor, identityProvider, incidentRepository, incidentCreationExecutor, triageAuthoritySource, triageAuthorityExecutor, slaPolicyExecutor, recurrenceDecisionExecutor, oidc, cursorSecret, environment: "production", closeOwnedResource, logError, logger, readiness, metrics });
+    app = await (options.buildApi ?? buildApi)({ configurationExecutor, identityProvider, incidentRepository, incidentCreationExecutor, triageAuthoritySource, triageAuthorityExecutor, slaPolicyExecutor, recurrenceDecisionExecutor, oidc, cursorSecret, environment: "production", closeOwnedResource, logError, logger, readiness, metrics, trustProxy, rateLimit, cors });
     await app.listen({
       host: options.host ?? process.env.HOST ?? "127.0.0.1",
       port: parsePort(options.port ?? process.env.PORT)

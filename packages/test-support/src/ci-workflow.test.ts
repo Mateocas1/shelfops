@@ -20,6 +20,7 @@ describe("CI workflow", () => {
     expect(workflow).toContain(`version: ${pnpmVersion}`); expect(workflow).toContain(`node-version: ${nodeVersion}`);
     expect(commands).toEqual([
       "pnpm install --frozen-lockfile",
+      "pnpm lint",
       "pnpm build:producers",
       "pnpm typecheck",
       "pnpm test:unit",
