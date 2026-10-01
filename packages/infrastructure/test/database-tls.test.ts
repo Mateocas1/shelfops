@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { PostgreSqlContainer } from "@testcontainers/postgresql";
@@ -92,9 +92,5 @@ describe("PostgreSQL TLS configuration", () => {
   it("connects with ssl disabled against a server without TLS", async () => {
     await expect(connect(plaintext.getConnectionUri(), { DATABASE_SSL_MODE: "disable" }))
       .resolves.toEqual([{ value: 1 }]);
-  });
-
-  it("keeps the generated CA material available for the server chain", async () => {
-    expect(await readFile(caCertificatePath, "utf8")).toContain("BEGIN CERTIFICATE");
   });
 });

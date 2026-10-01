@@ -8,7 +8,8 @@ import type { DatabaseConnectionConfig } from "@shelfops/infrastructure/postgres
 export type Migration = { version: number; filename: string; checksum: string; sql: Buffer };
 type Mode = "apply" | "status";
 type Result = { status: "current" | "pending"; current: number; pending: string[]; applied: string[]; drift: string[] };
-type MigrationConnection = Pick<DatabaseConnectionConfig, "ssl" | "statement_timeout">;
+// Migrations only inherit TLS settings: the API statement timeout could abort long DDL.
+type MigrationConnection = Pick<DatabaseConnectionConfig, "ssl">;
 
 class MigrationError extends Error {
   constructor(readonly code: string, readonly drift: string[] = [], readonly detail?: string) {
@@ -89,7 +90,8 @@ export async function migrate(connectionString: string, directory: string, mode:
 
 async function readConnection(): Promise<Partial<MigrationConnection>> {
   const { readDatabaseConnectionConfig } = await import("@shelfops/infrastructure/postgres/database-config");
-  return readDatabaseConnectionConfig(process.env);
+  const { ssl } = await readDatabaseConnectionConfig(process.env);
+  return { ssl };
 }
 
 async function main(): Promise<void> {
