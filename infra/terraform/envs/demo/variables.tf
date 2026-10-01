@@ -258,3 +258,39 @@ variable "oidc_client_secret" {
   default     = null
   sensitive   = true
 }
+
+variable "enable_github_oidc" {
+  description = "Create the GitHub Actions OIDC provider and the plan/deploy/apply roles."
+  type        = bool
+  default     = true
+}
+
+variable "github_repository" {
+  description = "GitHub repository allowed to assume the CI roles, as owner/repo."
+  type        = string
+  default     = "Mateocas1/shelfops"
+}
+
+variable "github_environment_name" {
+  description = "Protected GitHub environment trusted to run terraform apply/destroy."
+  type        = string
+  default     = "demo-apply"
+}
+
+variable "manage_oidc_provider" {
+  description = "Create the GitHub OIDC provider. Set false when the account already has one."
+  type        = bool
+  default     = true
+}
+
+variable "oidc_provider_arn" {
+  description = "Existing GitHub OIDC provider ARN when manage_oidc_provider is false."
+  type        = string
+  default     = null
+}
+
+variable "state_bucket_name" {
+  description = "Terraform state bucket created by the bootstrap root; must match for the CI roles."
+  type        = string
+  default     = ""
+}

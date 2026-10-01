@@ -60,6 +60,21 @@ output "alarm_topic_arn" {
   value       = module.observability.alarm_topic_arn
 }
 
+output "github_plan_role_arn" {
+  description = "Set as the AWS_PLAN_ROLE_ARN GitHub variable."
+  value       = try(module.github_oidc[0].plan_role_arn, null)
+}
+
+output "github_deploy_role_arn" {
+  description = "Set as the AWS_DEPLOY_ROLE_ARN GitHub variable."
+  value       = try(module.github_oidc[0].deploy_role_arn, null)
+}
+
+output "github_apply_role_arn" {
+  description = "Set as the AWS_APPLY_ROLE_ARN GitHub variable."
+  value       = try(module.github_oidc[0].apply_role_arn, null)
+}
+
 output "private_subnet_ids" {
   description = "Private subnets used by one-off tasks and RDS."
   value       = local.network_private_subnet_ids

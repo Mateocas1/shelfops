@@ -28,6 +28,16 @@ output "task_definition_arn" {
   value       = aws_ecs_task_definition.api.arn
 }
 
+output "api_task_definition_family" {
+  description = "API task definition family."
+  value       = aws_ecs_task_definition.api.family
+}
+
+output "one_off_task_definition_family" {
+  description = "One-off task definition family (migrate/seed-tenant)."
+  value       = aws_ecs_task_definition.one_off.family
+}
+
 output "one_off_task_definition_arn" {
   description = "One-off task definition ARN (migrate/seed-tenant)."
   value       = aws_ecs_task_definition.one_off.arn
@@ -43,7 +53,17 @@ output "execution_role_arn" {
   value       = aws_iam_role.execution.arn
 }
 
+output "execution_role_name" {
+  description = "Task execution role name."
+  value       = aws_iam_role.execution.name
+}
+
 output "task_role_arn" {
   description = "Task role ARN."
   value       = aws_iam_role.task.arn
+}
+
+output "task_role_name" {
+  description = "Task role name."
+  value       = aws_iam_role.task.name
 }

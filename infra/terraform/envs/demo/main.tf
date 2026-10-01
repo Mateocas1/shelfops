@@ -3,15 +3,18 @@ resource "random_password" "db_password" {
   special = false
 }
 
+data "aws_caller_identity" "current" {}
+
 locals {
   name = "${var.project}-${var.environment}"
 
   # LocalStack's free plan does not emulate ECR, ECS, RDS, ELBv2 or CloudFront.
-  enable_network  = var.enable_network && !var.localstack
-  enable_database = var.enable_database && !var.localstack
-  enable_compute  = var.enable_compute && !var.localstack
-  enable_ingress  = var.enable_ingress && !var.localstack
-  enable_budget   = var.enable_budget && !var.localstack
+  enable_network     = var.enable_network && !var.localstack
+  enable_database    = var.enable_database && !var.localstack
+  enable_compute     = var.enable_compute && !var.localstack
+  enable_ingress     = var.enable_ingress && !var.localstack
+  enable_budget      = var.enable_budget && !var.localstack
+  enable_github_oidc = var.enable_github_oidc
 
   db_password = var.db_password != null ? var.db_password : random_password.db_password.result
 
@@ -87,6 +90,10 @@ resource "terraform_data" "guards" {
     precondition {
       condition     = !local.enable_budget || var.alarm_email != ""
       error_message = "alarm_email is required when enable_budget is true."
+    }
+    precondition {
+      condition     = !local.enable_github_oidc || var.state_bucket_name != ""
+      error_message = "state_bucket_name is required when the GitHub OIDC roles are enabled."
     }
   }
 }
@@ -185,4 +192,29 @@ module "budgets" {
   name        = "${local.name}-zero-spend"
   limit_usd   = var.budget_limit_usd
   alarm_email = var.alarm_email
+}
+
+# One-time CI setup: GitHub federates into these roles with no stored AWS keys.
+module "github_oidc" {
+  source = "../../modules/github_oidc"
+  count  = local.enable_github_oidc ? 1 : 0
+
+  name              = local.name
+  github_repository = var.github_repository
+  region            = var.aws_region
+  account_id        = data.aws_caller_identity.current.account_id
+
+  create_provider   = var.manage_oidc_provider
+  oidc_provider_arn = var.oidc_provider_arn
+
+  ecr_repository_name            = try(module.compute[0].ecr_repository_name, "${local.name}-api")
+  ecs_cluster_name               = try(module.compute[0].cluster_name, "${local.name}-cluster")
+  ecs_service_name               = try(module.compute[0].service_name, "${local.name}-api")
+  api_task_definition_family     = try(module.compute[0].api_task_definition_family, "${local.name}-api")
+  one_off_task_definition_family = try(module.compute[0].one_off_task_definition_family, "${local.name}-one-off")
+  execution_role_name            = try(module.compute[0].execution_role_name, "${local.name}-task-execution")
+  task_role_name                 = try(module.compute[0].task_role_name, "${local.name}-task")
+
+  state_bucket_name = var.state_bucket_name
+  environment_name  = var.github_environment_name
 }
