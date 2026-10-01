@@ -11,12 +11,16 @@ Apply repository migrations before starting application instances. The command v
 
 Do not print the environment variable or include credentials in command history, logs, tickets, or screenshots.
 
+Set `DATABASE_SSL_MODE` (`disable`, `require`, or `verify-full`) exactly as for the API; the migration connection uses the same SSL and statement-timeout rules. `verify-full` defaults to the bundled `certs/global-bundle.pem` and can be pointed at another CA with `DATABASE_SSL_CA_PATH`.
+
+On a deployment host without the repository, build and run the `migrate` image target instead of `pnpm migrate`; it runs the same commands with production dependencies only. See [Run the production API container](container.md#migrations-image).
+
 ## Output
 
 Both commands write one machine-readable JSON object. A current database resembles:
 
 ```json
-{"status":"current","current":11,"pending":[],"applied":[],"drift":[]}
+{"status":"current","current":12,"pending":[],"applied":[],"drift":[]}
 ```
 
 `pnpm migrate` lists newly applied filenames in `applied`. `pnpm migrate:status` reports unapplied filenames in `pending` with `"status":"pending"` and does not execute migration SQL. Status exits nonzero if PostgreSQL is unavailable, another runner owns the migration lock, or drift is detected.

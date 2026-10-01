@@ -62,6 +62,7 @@ Reviewer HTTP request
 - **Contract control:** closed TypeBox schemas feed OpenAPI generation, and CI rejects drift in the committed OpenAPI document.
 - **Behavioral testing:** focused unit tests cover policy, PostgreSQL integration tests cover persistence behavior, and API contract tests cover composed HTTP boundaries.
 - **CI/CD evidence:** GitHub Actions uses frozen dependencies and explicit producer build, typecheck, unit, PostgreSQL integration, contract, OpenAPI drift, and workspace build gates. It does not publish or deploy artifacts.
+- **Deploy readiness:** the API image and a one-off migration image target ship without development dependencies, PostgreSQL SSL is selectable (`disable`/`require`/`verify-full` with the bundled RDS trust store), and pool bounds and timeouts are validated at startup.
 
 ## Portfolio scope
 
