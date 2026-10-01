@@ -3,3 +3,13 @@ aws_region      = "us-east-1"
 container_image = "REPLACE-WITH-ACCOUNT-ID.dkr.ecr.us-east-1.amazonaws.com/shelfops-demo-api:REPLACE-WITH-GIT-SHA"
 alarm_email     = "REPLACE-WITH-EMAIL"
 enable_budget   = true
+
+# Cognito as the OIDC provider. Requires enable_ingress (the callback URL comes
+# from the CloudFront domain) and is skipped under LocalStack, which does not
+# emulate Cognito. When enable_auth is true it owns the issuer, client id and
+# client secret; the organization id drives identity mapping and stays required.
+# enable_auth               = true
+# oidc_organization_id      = "REPLACE-WITH-ORGANIZATION-UUID"
+# cognito_domain_prefix     = ""            # empty generates a unique prefix
+# cognito_mfa_configuration = "OPTIONAL"    # OFF | OPTIONAL | ON
+# cognito_deletion_protection = false       # true for a long-lived pool

@@ -300,3 +300,32 @@ variable "state_bucket_name" {
   type        = string
   default     = ""
 }
+
+variable "enable_auth" {
+  description = "Create the Cognito User Pool, Hosted UI domain and API app client, and derive the SHELFOPS_OIDC_* values from them. Requires enable_ingress. Skipped under LocalStack."
+  type        = bool
+  default     = false
+}
+
+variable "cognito_domain_prefix" {
+  description = "Cognito prefix domain. Must be globally unique; when empty one is generated from the name plus a random suffix."
+  type        = string
+  default     = ""
+}
+
+variable "cognito_mfa_configuration" {
+  description = "Cognito MFA setting: OFF, OPTIONAL, or ON."
+  type        = string
+  default     = "OPTIONAL"
+
+  validation {
+    condition     = contains(["OFF", "OPTIONAL", "ON"], var.cognito_mfa_configuration)
+    error_message = "cognito_mfa_configuration must be OFF, OPTIONAL, or ON."
+  }
+}
+
+variable "cognito_deletion_protection" {
+  description = "Enable Cognito User Pool deletion protection. The ephemeral demo leaves it off."
+  type        = bool
+  default     = false
+}
