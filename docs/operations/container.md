@@ -42,6 +42,17 @@ Both the API and the migration task read the same connection settings:
 
 Each pool value must be a positive integer; invalid values abort startup. Use `DATABASE_SSL_MODE=verify-full` against RDS.
 
+## Entrypoint hardening
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `TRUST_PROXY` | `true` when `NODE_ENV=production`, otherwise `false` | Trust `X-Forwarded-For` so `request.ip` reflects the load balancer client. |
+| `RATE_LIMIT_MAX` | `100` | Maximum requests per client and window. `/health`, `/ready`, `/metrics`, and CORS preflight are exempt. |
+| `RATE_LIMIT_WINDOW_MS` | `60000` | Rate-limit window in milliseconds. |
+| `CORS_ALLOWED_ORIGINS` | empty | Comma-separated exact `scheme://host` origins. Empty denies every cross-origin request. |
+
+The rate limit and CORS values must be valid positive integers or exact origins; invalid values abort startup. Rate-limited responses use the standard error envelope with `code: rate-limit-exceeded` and status `429`.
+
 ## Migrations image
 
 Build the one-off migration image, which contains the compiled migration script, `migrations/`, the RDS CA bundle, and production dependencies only (no `tsx`):
