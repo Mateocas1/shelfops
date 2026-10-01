@@ -49,6 +49,10 @@ describe("tenant seed input", () => {
     expect(() => parseTenantSeedInput(["--org-slug", "acme"], {})).toThrow("tenant-seed-input-required");
   });
 
+  it("accepts an argument separator", () => {
+    expect(parseTenantSeedInput(["--", ...args()], {})).toMatchObject({ organizationSlug: "acme-retail" });
+  });
+
   it("rejects unknown arguments", () => {
     expect(() => parseTenantSeedInput([...args(), "--unknown", "value"], {})).toThrow("tenant-seed-input-invalid");
   });

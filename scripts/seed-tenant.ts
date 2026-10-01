@@ -72,6 +72,7 @@ function readArguments(argv: readonly string[]): Map<string, string> {
   const values = new Map<string, string>();
   for (let index = 0; index < argv.length; index += 1) {
     const token = argv[index] ?? "";
+    if (token === "--") continue;
     const separator = token.indexOf("=");
     const flag = separator === -1 ? token : token.slice(0, separator);
     if (!flag.startsWith("--")) throw new TenantSeedError("tenant-seed-input-invalid", `unexpected argument: ${token}`);
