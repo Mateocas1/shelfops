@@ -47,7 +47,7 @@ export interface StartupOptions {
   oidcEnvironment?: Readonly<Record<string, string | undefined>>;
   allowOidcLoopbackHttp?: boolean;
   createOidcProtocol?: typeof createOidcProtocol;
-  trustProxy?: boolean;
+  trustProxy?: false | number;
   rateLimit?: RateLimitSettings;
   cors?: CorsSettings;
 }

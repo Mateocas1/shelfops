@@ -13,13 +13,19 @@ export interface CorsSettings {
 export const DEFAULT_RATE_LIMIT: RateLimitSettings = { max: 100, timeWindow: 60_000 };
 export const DEFAULT_CORS: CorsSettings = { allowedOrigins: [] };
 
-/** `TRUST_PROXY` defaults to `true` only in production, where the API sits behind a load balancer. */
-export function parseTrustProxy(value: string | undefined, isProduction: boolean): boolean {
+/**
+ * `TRUST_PROXY` is `false` or the number of trusted proxy hops. Trusting every
+ * hop (`trustProxy: true`) would let clients forge `X-Forwarded-For` and evade
+ * IP rate limits, so `true` means one hop: the load balancer. Production
+ * defaults to one hop.
+ */
+export function parseTrustProxy(value: string | undefined, isProduction: boolean): false | number {
   const normalized = value?.trim().toLowerCase() ?? "";
-  if (normalized === "") return isProduction;
-  if (TRUE_VALUES.has(normalized)) return true;
+  if (normalized === "") return isProduction ? 1 : false;
   if (FALSE_VALUES.has(normalized)) return false;
-  throw new Error("TRUST_PROXY must be a boolean");
+  if (TRUE_VALUES.has(normalized)) return 1;
+  if (/^\d+$/.test(normalized)) return Number(normalized);
+  throw new Error("TRUST_PROXY must be false, true or a hop count");
 }
 
 function positiveInteger(value: string | undefined, fallback: number, name: string): number {

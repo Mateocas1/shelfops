@@ -34,7 +34,7 @@ export interface BuildApiOptions {
   logger?: ApiLogger | false;
   metrics?: Metrics;
   oidc?: OidcRouteDependencies;
-  trustProxy?: boolean;
+  trustProxy?: false | number;
   rateLimit?: RateLimitSettings;
   cors?: CorsSettings;
 }

@@ -3,12 +3,14 @@ import { describe, expect, it } from "vitest";
 import { DEFAULT_CORS, DEFAULT_RATE_LIMIT, parseCorsSettings, parseRateLimitSettings, parseTrustProxy } from "../../../apps/api/src/config.js";
 
 describe("runtime configuration", () => {
-  it("defaults trustProxy to the environment and accepts explicit booleans", () => {
-    expect(parseTrustProxy(undefined, true)).toBe(true);
+  it("defaults trustProxy to one trusted hop in production and accepts hop counts", () => {
+    expect(parseTrustProxy(undefined, true)).toBe(1);
     expect(parseTrustProxy("", false)).toBe(false);
-    expect(parseTrustProxy("TRUE", false)).toBe(true);
+    expect(parseTrustProxy("TRUE", false)).toBe(1);
+    expect(parseTrustProxy("2", false)).toBe(2);
     expect(parseTrustProxy("0", true)).toBe(false);
-    expect(() => parseTrustProxy("maybe", true)).toThrow("TRUST_PROXY must be a boolean");
+    expect(parseTrustProxy("false", true)).toBe(false);
+    expect(() => parseTrustProxy("maybe", true)).toThrow("TRUST_PROXY must be false, true or a hop count");
   });
 
   it("applies rate limit defaults and validates overrides", () => {

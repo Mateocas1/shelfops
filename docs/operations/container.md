@@ -46,7 +46,7 @@ Each pool value must be a positive integer; invalid values abort startup. Use `D
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
-| `TRUST_PROXY` | `true` when `NODE_ENV=production`, otherwise `false` | Trust `X-Forwarded-For` so `request.ip` reflects the load balancer client. |
+| `TRUST_PROXY` | `1` when `NODE_ENV=production`, otherwise `false` | `false` or the number of trusted proxy hops (`true` = 1). One hop makes `request.ip` the client address appended by the load balancer; a client-forged `X-Forwarded-For` prefix is ignored. |
 | `RATE_LIMIT_MAX` | `100` | Maximum requests per client and window. `/health`, `/ready`, `/metrics`, and CORS preflight are exempt. |
 | `RATE_LIMIT_WINDOW_MS` | `60000` | Rate-limit window in milliseconds. |
 | `CORS_ALLOWED_ORIGINS` | empty | Comma-separated exact `scheme://host` origins. Empty denies every cross-origin request. |
