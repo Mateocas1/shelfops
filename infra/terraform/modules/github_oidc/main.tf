@@ -14,6 +14,7 @@ locals {
   task_role_arn                   = "arn:${local.partition}:iam::${var.account_id}:role/${var.task_role_name}"
   state_bucket_arn                = "arn:${local.partition}:s3:::${var.state_bucket_name}"
   state_object_arn                = "arn:${local.partition}:s3:::${var.state_bucket_name}/*"
+  state_lock_arn                  = "arn:${local.partition}:s3:::${var.state_bucket_name}/${var.state_key}.tflock"
 }
 
 # AWS validates GitHub's certificate against its own trusted root CAs, so no
@@ -137,11 +138,13 @@ data "aws_iam_policy_document" "plan" {
     resources = [local.state_bucket_arn, local.state_object_arn]
   }
 
+  # Pull requests run their own code with this role, so writes are limited to
+  # the S3-native lock file: a PR can never overwrite or delete the state.
   statement {
     sid       = "StateLock"
     effect    = "Allow"
     actions   = ["s3:PutObject", "s3:DeleteObject"]
-    resources = [local.state_object_arn]
+    resources = [local.state_lock_arn]
   }
 }
 

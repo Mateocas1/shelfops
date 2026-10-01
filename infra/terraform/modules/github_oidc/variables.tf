@@ -71,6 +71,12 @@ variable "state_bucket_name" {
   type        = string
 }
 
+variable "state_key" {
+  description = "Object key of the Terraform state; the plan role may only write its .tflock."
+  type        = string
+  default     = "shelfops/demo/terraform.tfstate"
+}
+
 variable "environment_name" {
   description = "Protected GitHub environment trusted to run terraform apply/destroy."
   type        = string
