@@ -59,7 +59,7 @@ describe("OIDC session boundary", () => {
       { id: sessionId, expiresAt: futureExpiry, csrfToken: "csrf-token", principal: { ...activePrincipal, active: false } }
     ]) {
       const app = await applicationWithSession(session);
-      const cookie = session === session ? sessionCookie(sessionId) : "";
+      const cookie = sessionCookie(sessionId);
       const response = await app.inject({ method: "GET", url: "/api/v1/me", headers: { cookie } });
       if (session.expiresAt === futureExpiry && !session.revokedAt && session.principal.active) {
         expect(response.statusCode).toBe(200);

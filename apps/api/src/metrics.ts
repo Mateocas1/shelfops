@@ -62,7 +62,7 @@ export function createMetrics(options: MetricsOptions): Metrics {
     family("shelfops_http_errors_total", "counter", entries.filter((entry) => entry.errors).map((entry) => `shelfops_http_errors_total${labels({ method: entry.method, route: entry.route, status_class: entry.status })} ${entry.errors}`));
     const histogram: string[] = [];
     for (const entry of entries) {
-      buckets.forEach((bucket, index) => histogram.push(`shelfops_http_request_duration_seconds_bucket${labels({ method: entry.method, route: entry.route, le: String(bucket) })} ${entry.buckets[index]}`));
+      buckets.forEach((bucket, index) => { histogram.push(`shelfops_http_request_duration_seconds_bucket${labels({ method: entry.method, route: entry.route, le: String(bucket) })} ${entry.buckets[index]}`); });
       histogram.push(`shelfops_http_request_duration_seconds_bucket${labels({ method: entry.method, route: entry.route, le: "+Inf" })} ${entry.count}`);
       histogram.push(`shelfops_http_request_duration_seconds_sum${labels({ method: entry.method, route: entry.route })} ${entry.sum}`);
       histogram.push(`shelfops_http_request_duration_seconds_count${labels({ method: entry.method, route: entry.route })} ${entry.count}`);

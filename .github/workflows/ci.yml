@@ -31,6 +31,8 @@ jobs:
           cache: pnpm
       - name: Install frozen dependencies
         run: pnpm install --frozen-lockfile
+      - name: Lint workspace
+        run: pnpm lint
       - name: Build producer packages
         run: pnpm build:producers
       - name: Typecheck workspace

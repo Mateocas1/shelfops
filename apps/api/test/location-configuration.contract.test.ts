@@ -218,7 +218,7 @@ describe("isolated location configuration adapter", () => {
     const sessionId = createOpaqueSessionId();
     let stored: ConfigurationOutcome | undefined;
     let events = 0;
-    const executor = { execute: vi.fn(async (_actor, input: ConfigurationInput) => stored ??= (events += 1, outcome(input.correlationId))) } satisfies ConfigurationExecutor;
+    const executor = { execute: vi.fn(async (_actor, input: ConfigurationInput) => { if (stored === undefined) { events += 1; stored = outcome(input.correlationId); } return stored; }) } satisfies ConfigurationExecutor;
     const app = await isolatedApp(executor, sessionId, ["fresh-request", "replay-request"]);
 
     const fresh = await app.inject(request(sessionId));
