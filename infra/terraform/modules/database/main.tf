@@ -24,12 +24,8 @@ resource "aws_vpc_security_group_ingress_rule" "from_task" {
   referenced_security_group_id = var.task_security_group_id
 }
 
-resource "aws_vpc_security_group_egress_rule" "maintenance" {
-  security_group_id = aws_security_group.this.id
-  description       = "Outbound for RDS maintenance and replication"
-  ip_protocol       = "-1"
-  cidr_ipv4         = "0.0.0.0/0"
-}
+# No egress rule: RDS maintenance runs on AWS-managed networking, so the
+# database security group needs no outbound access.
 
 # rds.force_ssl rejects plaintext connections, matching DATABASE_SSL_MODE=verify-full.
 resource "aws_db_parameter_group" "this" {
