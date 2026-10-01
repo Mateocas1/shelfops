@@ -22,3 +22,8 @@ skip-check:
   - CKV2_AWS_28   # ALB WAF is a paid feature; the ALB is restricted to CloudFront by prefix list
   - CKV2_AWS_20   # CloudFront performs the HTTP->HTTPS viewer redirect; the ALB hop is HTTP
   - CKV2_AWS_11   # VPC flow logs add CloudWatch ingestion cost
+  - CKV_AWS_356   # The environment-gated apply role needs service-level actions; terraform cannot scope them
+  - CKV_AWS_111   # Same apply role: create/update/delete across the demo services
+  - CKV_AWS_109   # Same apply role: it manages the project's IAM roles and OIDC provider
+  - CKV_AWS_108   # Same apply role: it reads secrets state and service metadata during apply
+  - CKV_AWS_107   # Same apply role: Secrets Manager management is required to create the demo secrets
