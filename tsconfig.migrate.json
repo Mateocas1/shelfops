@@ -5,5 +5,5 @@
     "outDir": "dist/migrate",
     "types": ["node"]
   },
-  "include": ["scripts/migrate.ts"]
+  "include": ["scripts/migrate.ts", "scripts/seed-tenant.ts"]
 }

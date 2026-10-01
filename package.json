@@ -12,6 +12,7 @@
     "test:integration": "tsx scripts/run-integration-tests.ts",
     "migrate": "tsx scripts/migrate.ts",
     "migrate:status": "tsx scripts/migrate.ts status",
+    "seed:tenant": "tsx scripts/seed-tenant.ts",
     "demo": "tsx scripts/demo.ts",
     "smoke:production": "tsx scripts/smoke-production.ts",
     "oidc:proof": "tsx scripts/prove-oidc-runtime.ts",

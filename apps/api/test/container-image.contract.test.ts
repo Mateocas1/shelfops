@@ -38,6 +38,7 @@ describe("production API container image", () => {
     expect(dockerfile).toMatch(/^FROM node:22\.19\.0-bookworm-slim@sha256:[a-f0-9]{64} AS migrate$/m);
     expect(dockerfile).toContain("pnpm run build:migrate");
     expect(dockerfile).toContain("COPY --from=build --chown=node:node /app/dist/migrate/migrate.js ./scripts/migrate.cjs");
+    expect(dockerfile).toContain("COPY --from=build --chown=node:node /app/dist/migrate/seed-tenant.js ./scripts/seed-tenant.cjs");
     expect(dockerfile).toContain("COPY --from=build --chown=node:node /app/migrations ./migrations");
     expect(dockerfile).toContain("COPY --from=ca-bundle --chown=node:node /global-bundle.pem ./certs/global-bundle.pem");
     expect(dockerfile).toContain('ENTRYPOINT ["node", "scripts/migrate.cjs"]');
