@@ -27,6 +27,10 @@
       "types": "./dist/sla/sla-cycle-executor.d.ts",
       "default": "./dist/sla/sla-cycle-executor.js"
     },
+    "./postgres/database-config": {
+      "types": "./dist/postgres/database-config.d.ts",
+      "default": "./dist/postgres/database-config.js"
+    },
     "./postgres/sla-policy-executor": {
       "types": "./dist/postgres/sla-policy-executor.d.ts",
       "default": "./dist/postgres/sla-policy-executor.js"
