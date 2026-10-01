@@ -3,12 +3,16 @@ import { readdir, readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { Client } from "pg";
 
+import type { DatabaseConnectionConfig } from "@shelfops/infrastructure/postgres/database-config";
+
 export type Migration = { version: number; filename: string; checksum: string; sql: Buffer };
 type Mode = "apply" | "status";
 type Result = { status: "current" | "pending"; current: number; pending: string[]; applied: string[]; drift: string[] };
+// Migrations only inherit TLS settings: the API statement timeout could abort long DDL.
+type MigrationConnection = Pick<DatabaseConnectionConfig, "ssl">;
 
 class MigrationError extends Error {
-  constructor(readonly code: string, readonly drift: string[] = []) {
+  constructor(readonly code: string, readonly drift: string[] = [], readonly detail?: string) {
     super(code);
   }
 }
@@ -30,9 +34,9 @@ export async function discoverMigrations(directory: string): Promise<Migration[]
   return migrations;
 }
 
-export async function migrate(connectionString: string, directory: string, mode: Mode): Promise<Result> {
+export async function migrate(connectionString: string, directory: string, mode: Mode, connection: Partial<MigrationConnection> = {}): Promise<Result> {
   const migrations = await discoverMigrations(directory);
-  const client = new Client({ connectionString });
+  const client = new Client({ connectionString, ...connection });
   let locked = false;
   try {
     await client.connect();
@@ -84,18 +88,30 @@ export async function migrate(connectionString: string, directory: string, mode:
   }
 }
 
+async function readConnection(): Promise<Partial<MigrationConnection>> {
+  const { readDatabaseConnectionConfig } = await import("@shelfops/infrastructure/postgres/database-config");
+  const { ssl } = await readDatabaseConnectionConfig(process.env);
+  return { ssl };
+}
+
 async function main(): Promise<void> {
   let mode: Mode | undefined;
   try {
     mode = process.argv[2] === "status" ? "status" : process.argv[2] === undefined ? "apply" : undefined;
     if (!mode) throw new MigrationError("migration-mode-invalid");
     if (!process.env.DATABASE_URL) throw new MigrationError("database-url-required");
-    const directory = resolve(__dirname, "..", "migrations");
-    console.log(JSON.stringify(await migrate(process.env.DATABASE_URL, directory, mode)));
+    let connection: Partial<MigrationConnection>;
+    try {
+      connection = await readConnection();
+    } catch (error) {
+      throw new MigrationError("database-config-invalid", [], error instanceof Error ? error.message : undefined);
+    }
+    const directory = resolve(process.cwd(), "migrations");
+    console.log(JSON.stringify(await migrate(process.env.DATABASE_URL, directory, mode, connection)));
   } catch (error) {
     const migrationError = error instanceof MigrationError ? error : new MigrationError("database-or-migration-failed");
     const status = migrationError.code === "migration-drift" ? "drift" : mode === "apply" ? "failed" : "unavailable";
-    console.error(JSON.stringify({ status, error: migrationError.code, drift: migrationError.drift }));
+    console.error(JSON.stringify({ status, error: migrationError.code, drift: migrationError.drift, ...(migrationError.detail ? { detail: migrationError.detail } : {}) }));
     process.exitCode = 1;
   }
 }

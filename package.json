@@ -16,6 +16,7 @@
     "smoke:production": "tsx scripts/smoke-production.ts",
     "oidc:proof": "tsx scripts/prove-oidc-runtime.ts",
     "build:producers": "pnpm --filter @shelfops/domain build && pnpm --filter @shelfops/application build && pnpm --filter @shelfops/contracts build && pnpm --filter @shelfops/infrastructure build",
+    "build:migrate": "tsc --project tsconfig.migrate.json",
     "test:contract": "pnpm run build:producers && vitest run --config vitest.contract.config.ts",
     "test:all": "pnpm typecheck && pnpm test && pnpm test:integration && pnpm test:contract && pnpm build",
     "openapi:generate": "tsx scripts/generate-openapi.ts",
@@ -24,6 +25,7 @@
     "build": "pnpm --recursive --if-present run build"
   },
   "devDependencies": {
+    "@shelfops/infrastructure": "workspace:*",
     "@testcontainers/postgresql": "^12.0.4",
     "@types/node": "^22.15.3",
     "@types/pg": "^8.20.0",

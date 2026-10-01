@@ -22,6 +22,7 @@ test
 docs
 openapi
 openspec
+odd
 .github
 Dockerfile*
 !.dockerignore

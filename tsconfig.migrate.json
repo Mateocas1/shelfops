@@ -1,0 +1,9 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "scripts",
+    "outDir": "dist/migrate",
+    "types": ["node"]
+  },
+  "include": ["scripts/migrate.ts"]
+}

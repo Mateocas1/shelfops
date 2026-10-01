@@ -5,10 +5,31 @@ RUN corepack enable && corepack prepare pnpm@11.11.0 --activate
 COPY . .
 RUN pnpm install --frozen-lockfile \
     && pnpm run build:producers \
+    && pnpm run build:migrate \
     && pnpm --filter @shelfops/api build \
     && pnpm --filter @shelfops/api --prod deploy --legacy /app/deploy \
     && rm -rf /app/deploy/src \
     && rm -f /app/deploy/tsconfig.json
+
+FROM node:22.19.0-bookworm-slim@sha256:cff78eb5aa1cf27dc2b6aeea9d31366415a43e9a9ea0ddec00d780b2b66fad0f AS ca-bundle
+
+RUN node --input-type=module -e "const response = await fetch('https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem'); if (!response.ok) throw new Error('RDS CA bundle download failed: ' + response.status); const { writeFile } = await import('node:fs/promises'); await writeFile('/global-bundle.pem', await response.text());" \
+    && test -s /global-bundle.pem
+
+FROM node:22.19.0-bookworm-slim@sha256:cff78eb5aa1cf27dc2b6aeea9d31366415a43e9a9ea0ddec00d780b2b66fad0f AS migrate
+
+ARG SOURCE_REVISION="unknown"
+ARG SOURCE_REPOSITORY="unknown"
+LABEL org.opencontainers.image.revision=$SOURCE_REVISION \
+      org.opencontainers.image.source=$SOURCE_REPOSITORY
+ENV NODE_ENV=production
+WORKDIR /app
+COPY --from=build --chown=node:node /app/deploy ./
+COPY --from=build --chown=node:node /app/dist/migrate/migrate.js ./scripts/migrate.cjs
+COPY --from=build --chown=node:node /app/migrations ./migrations
+COPY --from=ca-bundle --chown=node:node /global-bundle.pem ./certs/global-bundle.pem
+USER node
+ENTRYPOINT ["node", "scripts/migrate.cjs"]
 
 FROM node:22.19.0-bookworm-slim@sha256:cff78eb5aa1cf27dc2b6aeea9d31366415a43e9a9ea0ddec00d780b2b66fad0f AS runtime
 
@@ -21,6 +42,7 @@ ENV NODE_ENV=production \
     PORT=3000
 WORKDIR /app
 COPY --from=build --chown=node:node /app/deploy ./
+COPY --from=ca-bundle --chown=node:node /global-bundle.pem ./certs/global-bundle.pem
 USER node
 EXPOSE 3000
 ENTRYPOINT ["node", "dist/server.js"]
