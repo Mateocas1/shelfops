@@ -185,15 +185,16 @@ allowance. 730 hours/month.
 | CloudFront | PriceClass_100, low volume | — | $0.00–2.00 |
 | CloudWatch Logs/alarms/dashboard | 7-day logs, ~7 alarms, 1 dashboard | — | $0.00 (free tier) |
 | SNS email | a few emails | — | $0.00 |
-| **Total** | | | **~$42–48/month** |
+| Public IPv4 addresses | 2 for the ALB + 1 for the Fargate task, $0.005/h each | ~$0.015 | ~$11.00 |
+| **Total** | | | **~$53–59/month** |
 
 **Conscious omissions** that keep it cheap: no NAT gateway (~$32/month saved), no
 WAF (~$5+/month), no VPC endpoints (~$7+/month each), no Multi-AZ, no
 Performance Insights, no KMS customer-managed keys, CloudFront without custom
 domain/ACM.
 
-**Actual demo cost:** the hourly resources sum to roughly **$0.06/hour**, so a
-four-hour demo costs about **$0.25**, plus a few cents of prorated monthly
+**Actual demo cost:** the hourly resources sum to roughly **$0.08/hour**, so a
+four-hour demo costs about **$0.32**, plus a few cents of prorated monthly
 storage/secret charges. This is well within AWS free-plan credits, but verify the
 account's current terms before applying.
 
