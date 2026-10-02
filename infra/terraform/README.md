@@ -56,6 +56,8 @@ Trust boundaries:
 | `modules/secrets` | Secrets Manager secrets (`DATABASE_URL`, `CURSOR_SECRET`, `METRICS_BEARER_TOKEN`, OIDC client secret) |
 | `modules/observability` | SNS alarm topic, ALB/ECS/RDS alarms, CloudWatch dashboard |
 | `modules/budgets` | Optional AWS Budgets USD alert |
+| `modules/github_oidc` | GitHub OIDC provider, plan/deploy/apply roles, plan, deploy and apply policies |
+| `modules/ci_boundary` | `${name}-ci-boundary` permissions boundary carried by every role the stack creates |
 
 Roots: `bootstrap/` (state bucket) and `envs/demo/` (the stack).
 
@@ -101,9 +103,17 @@ per-service coverage pages, then exercised locally:
   `localstack/localstack:4.4.0` (`edition: community`):
   - `bootstrap` → 7 resources added (versioned, encrypted, TLS-only S3 bucket),
     destroyed cleanly even with a versioned object present.
-  - `envs/demo -var localstack=true` → 10 resources added (Secrets Manager
-    secrets + versions, SNS topic, CloudWatch dashboard, guard), destroyed
-    cleanly; the backend state file lived in the LocalStack S3 bucket.
+  - `envs/demo -var localstack=true` → 19 resources added (Secrets Manager
+    secrets + versions, SNS topic, CloudWatch dashboard, guard, the GitHub OIDC
+    provider, the plan/deploy/apply roles and their policies, plus the
+    `shelfops-demo-ci-boundary` policy and its ARN guard), destroyed cleanly; the
+    backend state file lived in the LocalStack S3 bucket.
+  - The three CI roles came back from `iam get-role` with
+    `PermissionsBoundary: arn:aws:iam::000000000000:policy/shelfops-demo-ci-boundary`,
+    and the deploy policy rendered `ecs:RunTask` on the one-off task definition
+    family only, with the `ecs:cluster` condition. **IAM authorization is not
+    enforced by LocalStack**, so the runtime effect of those conditions is not
+    exercised there.
   - **Not exercised:** network/DNS, RDS, ECR, ECS/Fargate, ALB and CloudFront.
     Those are only validated statically (`terraform validate`, tflint, checkov).
 
@@ -247,6 +257,41 @@ its own trusted root CAs instead of a pinned thumbprint
 ([GitHub changelog](https://github.blog/changelog/2023-07-13-github-actions-oidc-integration-with-aws-no-longer-requires-pinning-of-intermediate-tls-certificates/),
 [terraform-provider-aws#32480](https://github.com/hashicorp/terraform-provider-aws/issues/32480)).
 
+### Permissions boundary
+
+Every role the stack creates — task, task-execution, plan, deploy and apply —
+carries the managed policy `${name}-ci-boundary` (`modules/ci_boundary`). A
+permissions boundary grants nothing on its own: it is a *ceiling* that the role's
+identity policies and the boundary must both allow, so it lists the demo services
+terraform manages plus the project-scoped IAM, state-bucket and OIDC-provider
+actions. The boundary sits in the root rather than in `modules/github_oidc`
+because that module already consumes the compute outputs while the apply role
+needs the boundary ARN in a condition: owning it there would be a module cycle.
+
+The apply role may create a role, set its permissions boundary, write an inline
+policy or attach a policy **only while that same boundary is attached**
+(`iam:PermissionsBoundary` condition). On top of that the boundary itself denies:
+
+- creating or widening a project role that does *not* carry this boundary;
+- `CreatePolicyVersion`, `DeletePolicy`, `DeletePolicyVersion` and
+  `SetDefaultPolicyVersion` on the boundary policy;
+- `DeleteRolePermissionsBoundary` anywhere.
+
+This is the AWS-documented delegation pattern
+([permissions boundaries](https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_boundaries.html),
+[per-action condition keys](https://docs.aws.amazon.com/service-authorization/latest/reference/list_iam.html),
+[delegation example](https://aws.amazon.com/blogs/security/delegate-permission-management-to-developers-using-iam-permissions-boundaries/)).
+Two consequences are deliberate:
+
+- **Changing the boundary is an administrator action.** The apply role can create
+the policy but never rewrite or delete it, so an edit to `modules/ci_boundary`
+needs an administrator (or a manual policy edit) before it reaches the next
+apply. That is exactly what stops an apply from widening its own ceiling.
+- **`terraform destroy` stops at the boundary.** Deleting `${name}-ci-boundary`
+is denied to the apply role, so a full destroy leaves that one policy behind;
+an administrator removes it after the stack is gone. Everything else destroys
+normally.
+
 ### One-time setup
 
 1. Apply the stack (this also creates the OIDC provider and roles):
@@ -278,7 +323,7 @@ its own trusted root CAs instead of a pinned thumbprint
 | `TF_CONTAINER_IMAGE` | `<ecr>:<current-sha>` | Current API image, keeps `plan` meaningful |
 | `TF_MIGRATE_IMAGE` | `<ecr>:<current-sha>-migrate` | Optional; defaults to the API image |
 | `ECR_REPOSITORY` | `<account>.dkr.ecr.<region>.amazonaws.com/shelfops-demo-api` | Full repository URL |
-| `ECS_CLUSTER` | `shelfops-demo-cluster` | |
+| `ECS_CLUSTER` | `shelfops-demo-cluster` | Name or ARN; the `RunTask` condition (`ecs:cluster`) is ARN-valued |
 | `ECS_SERVICE` | `shelfops-demo-api` | |
 | `API_TASK_DEFINITION` | `shelfops-demo-api` | Family name |
 | `ONE_OFF_TASK_DEFINITION` | `shelfops-demo-one-off` | Family name (migrate / seed-tenant) |
@@ -297,7 +342,9 @@ its own trusted root CAs instead of a pinned thumbprint
   the migrate image carries `scripts/migrate.cjs` and `migrations/`), registers new
   task-definition revisions from the current family, runs the one-off migration
   task and **fails on a non-zero exit code**, then waits for `services-stable`
-  before the `SMOKE_URL` check.
+  before the `SMOKE_URL` check. The deploy role may only `ecs:RunTask` the one-off
+  task definition family on the `ECS_CLUSTER`; `DescribeTasks`/`ListTasks` cannot
+  be scoped by task definition and stay on `*`.
 - `apply`/`destroy` are never automatic; they require a `workflow_dispatch` input
   plus the `demo-apply` environment approval.
 
@@ -309,11 +356,20 @@ its own trusted root CAs instead of a pinned thumbprint
   `infra/terraform/.checkov.yaml`.
 - All five workflows pass `actionlint`; the four AWS workflows are covered by
   `packages/test-support/src/ci-workflow.test.ts` (SHA-pinned actions, OIDC, no
-  stored secrets, sticky plan comment, protected dispatch).
+  stored secrets, sticky plan comment, protected dispatch), and
+  `packages/test-support/src/terraform-iam-boundary.test.ts` locks the IAM
+  invariants (boundary statements and protections, the apply role's
+  `iam:PermissionsBoundary` conditions, the boundary on all five roles, and the
+  `RunTask` scope).
 - The LocalStack subset applies and destroys cleanly, including the GitHub OIDC
-  module (provider + three roles with the expected `sub` conditions); see
-  [LocalStack findings](#localstack-findings).
+  module (provider + three roles with the expected `sub` conditions and the
+  attached permissions boundary); see [LocalStack findings](#localstack-findings).
 - **Not yet verified against real AWS:** CloudFront/ALB wiring, ECS task
   startup, RDS TLS `verify-full` against the real RDS endpoint, alarm email
   delivery, and the full apply under 20 minutes. Those require a human-approved
-  apply with real credentials.
+  apply with real credentials. The same applies to the IAM semantics introduced
+  here: the `iam:PermissionsBoundary` conditions and denies, the `ecs:cluster`
+  condition on `RunTask` (ECS resolves a short cluster name to its ARN before
+  evaluating it), and the deliberate consequence that the apply role cannot
+  delete `${name}-ci-boundary`, so `terraform destroy` leaves that one policy for
+  an administrator.

@@ -66,6 +66,11 @@ variable "task_role_name" {
   type        = string
 }
 
+variable "permissions_boundary_arn" {
+  description = "Permissions boundary attached to every role in this module and required by the apply role's iam:PermissionsBoundary conditions."
+  type        = string
+}
+
 variable "state_bucket_name" {
   description = "S3 bucket holding Terraform state."
   type        = string

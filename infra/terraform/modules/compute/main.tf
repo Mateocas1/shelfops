@@ -55,8 +55,9 @@ data "aws_iam_policy_document" "ecs_tasks_assume" {
 }
 
 resource "aws_iam_role" "execution" {
-  name               = "${var.name}-task-execution"
-  assume_role_policy = data.aws_iam_policy_document.ecs_tasks_assume.json
+  name                 = "${var.name}-task-execution"
+  assume_role_policy   = data.aws_iam_policy_document.ecs_tasks_assume.json
+  permissions_boundary = var.permissions_boundary_arn
 
   tags = { Name = "${var.name}-task-execution" }
 }
@@ -82,8 +83,9 @@ resource "aws_iam_role_policy" "execution_secrets" {
 
 # The task role deliberately carries no policy: the API calls no AWS APIs.
 resource "aws_iam_role" "task" {
-  name               = "${var.name}-task"
-  assume_role_policy = data.aws_iam_policy_document.ecs_tasks_assume.json
+  name                 = "${var.name}-task"
+  assume_role_policy   = data.aws_iam_policy_document.ecs_tasks_assume.json
+  permissions_boundary = var.permissions_boundary_arn
 
   tags = { Name = "${var.name}-task" }
 }

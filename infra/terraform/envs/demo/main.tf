@@ -121,6 +121,18 @@ resource "terraform_data" "guards" {
   }
 }
 
+# Permission ceiling for every role this stack creates. It lives in the root and
+# not inside the GitHub OIDC module because that module already consumes the
+# compute outputs while the apply role needs this ARN in a condition: owning it
+# there would be a module cycle.
+module "ci_boundary" {
+  source = "../../modules/ci_boundary"
+
+  name              = local.name
+  account_id        = data.aws_caller_identity.current.account_id
+  state_bucket_name = var.state_bucket_name
+}
+
 module "network" {
   source = "../../modules/network"
   count  = local.enable_network ? 1 : 0
@@ -192,22 +204,23 @@ module "compute" {
   source = "../../modules/compute"
   count  = local.enable_compute ? 1 : 0
 
-  name                   = local.name
-  region                 = var.aws_region
-  container_image        = var.container_image
-  one_off_image          = var.migrate_image != "" ? var.migrate_image : null
-  container_cpu          = var.container_cpu
-  container_memory       = var.container_memory
-  desired_count          = var.desired_count
-  public_subnet_ids      = local.network_public_subnet_ids
-  task_security_group_id = local.network_task_security_group_id
-  target_group_arn       = local.ingress_target_group_arn
-  environment            = local.environment
-  secrets                = local.api_secrets
-  one_off_environment    = { NODE_ENV = "production", DATABASE_SSL_MODE = var.database_ssl_mode }
-  one_off_secrets        = local.one_off_secrets
-  secret_arns            = local.all_secret_arns
-  log_retention_days     = var.log_retention_days
+  name                     = local.name
+  permissions_boundary_arn = module.ci_boundary.boundary_arn
+  region                   = var.aws_region
+  container_image          = var.container_image
+  one_off_image            = var.migrate_image != "" ? var.migrate_image : null
+  container_cpu            = var.container_cpu
+  container_memory         = var.container_memory
+  desired_count            = var.desired_count
+  public_subnet_ids        = local.network_public_subnet_ids
+  task_security_group_id   = local.network_task_security_group_id
+  target_group_arn         = local.ingress_target_group_arn
+  environment              = local.environment
+  secrets                  = local.api_secrets
+  one_off_environment      = { NODE_ENV = "production", DATABASE_SSL_MODE = var.database_ssl_mode }
+  one_off_secrets          = local.one_off_secrets
+  secret_arns              = local.all_secret_arns
+  log_retention_days       = var.log_retention_days
 }
 
 module "observability" {
@@ -238,10 +251,11 @@ module "github_oidc" {
   source = "../../modules/github_oidc"
   count  = local.enable_github_oidc ? 1 : 0
 
-  name              = local.name
-  github_repository = var.github_repository
-  region            = var.aws_region
-  account_id        = data.aws_caller_identity.current.account_id
+  name                     = local.name
+  github_repository        = var.github_repository
+  region                   = var.aws_region
+  account_id               = data.aws_caller_identity.current.account_id
+  permissions_boundary_arn = module.ci_boundary.boundary_arn
 
   create_provider   = var.manage_oidc_provider
   oidc_provider_arn = var.oidc_provider_arn
