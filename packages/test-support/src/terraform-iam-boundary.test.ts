@@ -97,4 +97,23 @@ describe("CI permissions boundary", () => {
     for (const role of roles) expect(role).toContain("permissions_boundary");
     expect((await read(demoRoot)).match(/permissions_boundary_arn\s*=/g)).toHaveLength(2);
   });
+
+  it("scopes the migration RunTask to the one-off family and cluster", async () => {
+    const policy = await statements(oidcModule, 'data "aws_iam_policy_document" "deploy"');
+    const runTask = policy.filter((statement) => statement.includes("ecs:RunTask"));
+    const taskReads = policy.filter((statement) => statement.includes("ecs:DescribeTasks") && statement.includes("ecs:ListTasks"));
+
+    expect(runTask).toHaveLength(1);
+    expect(runTask[0]).not.toContain("ecs:DescribeTasks");
+    expect(runTask[0]).not.toContain("ecs:ListTasks");
+    expect(runTask[0]).toContain("local.one_off_task_definition_pattern");
+    expect(runTask[0]).not.toContain("local.api_task_definition_pattern");
+    expect(runTask[0]).not.toMatch(/resources\s*=\s*\[\s*"\*"\s*\]/);
+    expect(runTask[0]).toContain("ecs:cluster");
+    expect(runTask[0]).toContain("local.ecs_cluster_arn");
+
+    // DescribeTasks/ListTasks have no resource-level permissions, so they stay on "*".
+    expect(taskReads).toHaveLength(1);
+    expect(taskReads[0]).toMatch(/resources\s*=\s*\[\s*"\*"\s*\]/);
+  });
 });

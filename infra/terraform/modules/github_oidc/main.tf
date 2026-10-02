@@ -201,10 +201,30 @@ data "aws_iam_policy_document" "deploy" {
   }
 
   statement {
-    sid       = "RunMigrationTask"
-    effect    = "Allow"
-    actions   = ["ecs:RunTask", "ecs:DescribeTasks", "ecs:ListTasks"]
-    resources = [local.one_off_task_definition_pattern, "*"]
+    sid    = "RunMigrationTask"
+    effect = "Allow"
+
+    # One task definition family, resolved to its newest revision, on this
+    # cluster only: ecs:cluster is ARN-valued and ECS resolves a short cluster
+    # name to its ARN before the condition is evaluated.
+    actions   = ["ecs:RunTask"]
+    resources = [local.one_off_task_definition_pattern]
+
+    condition {
+      test     = "StringEquals"
+      variable = "ecs:cluster"
+      values   = [local.ecs_cluster_arn]
+    }
+  }
+
+  statement {
+    sid    = "ReadMigrationTasks"
+    effect = "Allow"
+
+    # DescribeTasks and ListTasks have no resource-level permissions: they do
+    # not support a task-definition ARN as a resource, so they stay on "*".
+    actions   = ["ecs:DescribeTasks", "ecs:ListTasks"]
+    resources = ["*"]
   }
 
   statement {
