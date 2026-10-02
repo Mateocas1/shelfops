@@ -63,6 +63,7 @@ resource "aws_iam_role" "plan" {
   assume_role_policy   = data.aws_iam_policy_document.assume_with_subject["plan"].json
   description          = "Read-only terraform plan role for GitHub pull requests"
   max_session_duration = 3600
+  permissions_boundary = var.permissions_boundary_arn
 
   tags = merge(var.tags, { Name = "${var.name}-github-plan" })
 }
@@ -72,6 +73,7 @@ resource "aws_iam_role" "deploy" {
   assume_role_policy   = data.aws_iam_policy_document.assume_with_subject["deploy"].json
   description          = "Image deploy role for pushes to main"
   max_session_duration = 3600
+  permissions_boundary = var.permissions_boundary_arn
 
   tags = merge(var.tags, { Name = "${var.name}-github-deploy" })
 }
@@ -81,6 +83,7 @@ resource "aws_iam_role" "apply" {
   assume_role_policy   = data.aws_iam_policy_document.assume_with_subject["apply"].json
   description          = "Terraform apply/destroy role, gated by the ${var.environment_name} environment"
   max_session_duration = 3600
+  permissions_boundary = var.permissions_boundary_arn
 
   tags = merge(var.tags, { Name = "${var.name}-github-apply" })
 }
@@ -291,20 +294,22 @@ data "aws_iam_policy_document" "apply" {
     resources = ["arn:${local.partition}:iam::${var.account_id}:oidc-provider/${local.oidc_host}"]
   }
 
+  # Roles and policies are limited to the project prefix, and creating, widening
+  # or attaching anything to a role is only allowed while the CI permissions
+  # boundary is attached: the apply role can never escalate past that ceiling.
+  #   https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_boundaries.html
+  #   https://docs.aws.amazon.com/service-authorization/latest/reference/list_iam.html
   statement {
     sid    = "ProjectRoles"
     effect = "Allow"
 
     actions = [
-      "iam:CreateRole",
       "iam:DeleteRole",
       "iam:GetRole",
       "iam:GetRolePolicy",
       "iam:ListRolePolicies",
       "iam:ListAttachedRolePolicies",
-      "iam:PutRolePolicy",
       "iam:DeleteRolePolicy",
-      "iam:AttachRolePolicy",
       "iam:DetachRolePolicy",
       "iam:TagRole",
       "iam:UntagRole",
@@ -312,6 +317,26 @@ data "aws_iam_policy_document" "apply" {
     ]
 
     resources = ["arn:${local.partition}:iam::${var.account_id}:role/${var.name}-*"]
+  }
+
+  statement {
+    sid    = "ProjectRolesOnlyWithBoundary"
+    effect = "Allow"
+
+    actions = [
+      "iam:CreateRole",
+      "iam:PutRolePermissionsBoundary",
+      "iam:PutRolePolicy",
+      "iam:AttachRolePolicy",
+    ]
+
+    resources = ["arn:${local.partition}:iam::${var.account_id}:role/${var.name}-*"]
+
+    condition {
+      test     = "StringEquals"
+      variable = "iam:PermissionsBoundary"
+      values   = [var.permissions_boundary_arn]
+    }
   }
 
   statement {

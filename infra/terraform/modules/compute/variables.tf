@@ -3,6 +3,12 @@ variable "name" {
   type        = string
 }
 
+variable "permissions_boundary_arn" {
+  description = "Permissions boundary attached to the task and task-execution roles. Null leaves them unbounded."
+  type        = string
+  default     = null
+}
+
 variable "region" {
   description = "AWS region used by the awslogs driver."
   type        = string
