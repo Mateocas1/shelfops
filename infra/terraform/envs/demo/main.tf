@@ -165,13 +165,14 @@ module "database" {
 module "secrets" {
   source = "../../modules/secrets"
 
-  name               = local.name
-  database_address   = local.database_address
-  database_port      = local.database_port
-  database_name      = var.db_name
-  database_username  = var.db_username
-  database_password  = local.db_password
-  oidc_client_secret = local.oidc_active ? local.auth_client_secret : null
+  name                = local.name
+  create_database_url = local.enable_database
+  database_address    = local.database_address
+  database_port       = local.database_port
+  database_name       = var.db_name
+  database_username   = var.db_username
+  database_password   = local.db_password
+  oidc_client_secret  = local.oidc_active ? local.auth_client_secret : null
 }
 
 # Cognito User Pool, Hosted UI prefix domain and API app client. When enabled it
@@ -229,6 +230,7 @@ module "observability" {
   name                    = local.name
   region                  = var.aws_region
   alarm_email             = var.alarm_email
+  enable_alb_alarms       = local.enable_ingress
   alb_arn_suffix          = local.ingress_alb_arn_suffix
   target_group_arn_suffix = local.ingress_target_arn_suffix
   ecs_cluster_name        = try(module.compute[0].cluster_name, null)

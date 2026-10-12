@@ -3,8 +3,14 @@ variable "name" {
   type        = string
 }
 
+variable "create_database_url" {
+  description = "Create the DATABASE_URL secret. A plan-time flag: the RDS address is only known after apply, so it cannot drive count."
+  type        = bool
+  default     = false
+}
+
 variable "database_address" {
-  description = "RDS endpoint hostname. When null, no DATABASE_URL secret is created."
+  description = "RDS endpoint hostname; required when create_database_url is true."
   type        = string
   default     = null
 }

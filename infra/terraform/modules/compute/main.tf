@@ -2,6 +2,8 @@ resource "aws_ecr_repository" "this" {
   #checkov:skip=CKV_AWS_136:AES256 default encryption is used to keep the demo free
   name                 = "${var.name}-api"
   image_tag_mutability = "IMMUTABLE"
+  # Ephemeral demo: destroy must not stop at the pushed images.
+  force_delete = true
 
   image_scanning_configuration {
     scan_on_push = true

@@ -119,6 +119,11 @@ per-service coverage pages, then exercised locally:
 
 ## Real AWS demo procedure
 
+Prerequisite: a new AWS account cannot create CloudFront distributions until AWS
+verifies it (`AccessDenied: Your account must be verified before you can add new
+CloudFront resources`). Open an AWS Support case first; the ECS service depends on
+the distribution, so the stack cannot come up without it.
+
 ```sh
 # 0. Budget: create the USD 1 budget first (or reuse the account's existing one).
 cd infra/terraform
@@ -127,20 +132,30 @@ terraform -chdir=bootstrap apply -var 'state_bucket_name=shelfops-tfstate-<ACCOU
 ```
 
 ```sh
-# 1. Configure the demo root with the state bucket from step 0.
+# 1. Configure the demo root with the state bucket from step 0, then create
+#    only the ECR repository: the image has to exist before the ECS service.
+#    container_image must already be a full ECR reference (the module validates
+#    it), so pass the reference the push below will produce.
 cd envs/demo
 cp backend.hcl.example backend.hcl          # fill bucket/region, never commit
 terraform init -backend-config=backend.hcl
-terraform apply -var 'container_image=placeholder'  # first apply creates ECR
+ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
+ECR="$ACCOUNT.dkr.ecr.us-east-1.amazonaws.com/shelfops-demo-api"
+TAG=$(git rev-parse --short HEAD)
+STATE="shelfops-tfstate-$ACCOUNT"
+terraform apply -var "container_image=$ECR:$TAG" -var "state_bucket_name=$STATE" \
+  -target='module.compute[0].aws_ecr_repository.this' \
+  -target='module.compute[0].aws_ecr_lifecycle_policy.this'
 ```
 
 ```sh
-# 2. Build and push the image to the ECR repository Terraform created.
-ECR=$(terraform output -raw ecr_repository_url)
+# 2. Build and push the runtime and migrate images, then apply everything.
 aws ecr get-login-password | docker login --username AWS --password-stdin "${ECR%%/*}"
-docker build --platform linux/amd64 -f ../../../Dockerfile.api -t "$ECR:$(git rev-parse --short HEAD)" ../../..
-docker push "$ECR:$(git rev-parse --short HEAD)"
-terraform apply -var "container_image=$ECR:$(git rev-parse --short HEAD)"
+docker build --platform linux/amd64 -f ../../../Dockerfile.api --target runtime -t "$ECR:$TAG" ../../..
+docker build --platform linux/amd64 -f ../../../Dockerfile.api --target migrate -t "$ECR:$TAG-migrate" ../../..
+docker push "$ECR:$TAG" && docker push "$ECR:$TAG-migrate"
+terraform apply -var "container_image=$ECR:$TAG" -var "migrate_image=$ECR:$TAG-migrate" \
+  -var "state_bucket_name=$STATE"
 ```
 
 ```sh
@@ -156,8 +171,9 @@ curl --fail "$(terraform output -raw smoke_url)"     # expect {"status":"ready"}
 
 ```sh
 # 5. Tear down and verify nothing is left.
-terraform destroy
-terraform -chdir=../bootstrap destroy -var 'state_bucket_name=shelfops-tfstate-<ACCOUNT-ID>'
+terraform destroy -var "container_image=$ECR:$TAG" -var "migrate_image=$ECR:$TAG-migrate" \
+  -var "state_bucket_name=$STATE"
+terraform -chdir=../bootstrap destroy -var "state_bucket_name=$STATE"
 aws ecs list-clusters
 aws rds describe-db-instances --query 'DBInstances[].DBInstanceIdentifier'
 aws elbv2 describe-load-balancers --query 'LoadBalancers[].LoadBalancerName'

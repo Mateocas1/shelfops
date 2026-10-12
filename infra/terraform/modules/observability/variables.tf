@@ -14,14 +14,20 @@ variable "alarm_email" {
   default     = ""
 }
 
+variable "enable_alb_alarms" {
+  description = "Create the ALB alarms. A plan-time flag: the ARN suffixes are only known after apply, so they cannot drive count."
+  type        = bool
+  default     = false
+}
+
 variable "alb_arn_suffix" {
-  description = "ALB ARN suffix, or null when there is no load balancer."
+  description = "ALB ARN suffix; required when enable_alb_alarms is true."
   type        = string
   default     = null
 }
 
 variable "target_group_arn_suffix" {
-  description = "Target group ARN suffix, or null when there is no target group."
+  description = "Target group ARN suffix; required when enable_alb_alarms is true."
   type        = string
   default     = null
 }
