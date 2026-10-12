@@ -14,7 +14,7 @@ resource "aws_sns_topic_subscription" "email" {
 }
 
 resource "aws_cloudwatch_metric_alarm" "alb_5xx" {
-  count = var.alb_arn_suffix == null ? 0 : 1
+  count = var.enable_alb_alarms ? 1 : 0
 
   alarm_name          = "${var.name}-alb-5xx"
   alarm_description   = "Any ALB-generated 5xx response"
@@ -34,7 +34,7 @@ resource "aws_cloudwatch_metric_alarm" "alb_5xx" {
 }
 
 resource "aws_cloudwatch_metric_alarm" "alb_latency_p95" {
-  count = var.target_group_arn_suffix == null ? 0 : 1
+  count = var.enable_alb_alarms ? 1 : 0
 
   alarm_name          = "${var.name}-alb-p95-latency"
   alarm_description   = "Target p95 response time above ${var.latency_p95_threshold_seconds}s"

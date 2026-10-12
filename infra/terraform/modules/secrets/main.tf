@@ -1,5 +1,5 @@
 locals {
-  create_database_url = var.database_address != null
+  create_database_url = var.create_database_url
   database_url = local.create_database_url ? format(
     "postgresql://%s:%s@%s:%d/%s",
     var.database_username,
